@@ -1,0 +1,199 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  Administrador
+  Cajero
+  Generico
+}
+
+enum ClientStatus {
+  Activo
+  Desactivado
+}
+
+enum PaymentPeriod {
+  Semanal
+  Quincenal
+  Mensual
+  DiaFijo
+}
+
+enum OperationStatus {
+  Activo
+  Anulado
+}
+
+enum PaymentMethod {
+  Efectivo
+  Tarjeta
+  Transferencia
+}
+
+enum LoanStatus {
+  Activo
+  Pagado
+  Vencido
+  Anulado
+}
+
+enum InstallmentStatus {
+  Pendiente
+  Pagada
+  Parcial
+  Vencida
+  Anulada
+}
+
+model User {
+  id         String    @id @default(uuid())
+  name       String
+  email      String    @unique
+  password   String
+  role       UserRole
+  avatar     String?
+  active     Boolean   @default(true)
+  approved   Boolean   @default(false)
+  approvedBy String?
+  approvedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Client {
+  id             String          @id @default(uuid())
+  clientNumber   String          @unique
+  name           String
+  phone          String          @default("")
+  address        String          @default("")
+  creditLimit    Float           @default(0)
+  currentBalance Float           @default(0)
+  paymentPeriod  PaymentPeriod   @default(Mensual)
+  paymentDay     String          @default("")
+  nextDueDate    String          @default("")
+  status         ClientStatus    @default(Activo)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  purchases      CreditPurchase[]
+  payments       Payment[]
+  loans          Loan[]
+}
+
+model Loan {
+  id                    String            @id @default(uuid())
+  code                  String            @unique
+  clientId              String
+  client                Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date                  DateTime          @default(now())
+  product               String?
+  capital               Float
+  interestRate          Float
+  interestAmount        Float
+  totalAmount           Float
+  installmentsCount     Int
+  installmentAmount     Float
+  frequency             PaymentPeriod
+  firstDueDate          String
+  paidAmount            Float             @default(0)
+  pendingAmount         Float
+  paidInstallmentsCount Int               @default(0)
+  status                LoanStatus        @default(Activo)
+  ticketNumber          String?
+  registeredBy          String
+  notes                 String?
+  annulledAt            DateTime?
+  annulledBy            String?
+  annulmentReason       String?
+  installments          Installment[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  purchases             CreditPurchase[]
+  payments              Payment[]
+}
+
+model Installment {
+  id                String            @id @default(uuid())
+  loanId            String
+  loan              Loan              @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  installmentNumber Int
+  dueDate           String            // YYYY-MM-DD
+  capital           Float
+  interest          Float
+  amount            Float
+  paidAmount        Float             @default(0)
+  status            InstallmentStatus @default(Pendiente)
+  paidDate          DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+}
+
+model CreditPurchase {
+  id              String          @id @default(uuid())
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date            DateTime        @default(now())
+  product         String
+  unitPrice       Float
+  quantity        Int             @default(1)
+  amount          Float
+  ticketNumber    String?
+  registeredBy    String
+  status          OperationStatus @default(Activo)
+  annulledAt      DateTime?
+  annulledBy      String?
+  annulmentReason String?
+  debtType        String          @default("simple") // "simple" or "credit"
+  loanId          String?
+  loan            Loan?           @relation(fields: [loanId], references: [id], onDelete: SetNull)
+}
+
+enum PaymentStatus {
+  APPROVED
+  PENDING_APPROVAL
+  REJECTED
+}
+
+model Payment {
+  id               String          @id @default(uuid())
+  clientId         String
+  client           Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date             DateTime        @default(now())
+  amount           Float
+  previousBalance  Float
+  resultingBalance Float
+  paymentMethod    PaymentMethod   @default(Efectivo)
+  cardSurcharge    Float?
+  totalCharged     Float
+  registeredBy     String
+  status           OperationStatus @default(Activo)
+  notes            String?
+  annulledAt       DateTime?
+  annulledBy       String?
+  annulmentReason  String?
+  loanId           String?
+  loan             Loan?           @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  approvedStatus   PaymentStatus   @default(APPROVED)
+  createdByUserId  String?
+  approvedByUserId String?
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  userId    String
+  userName  String
+  userRole  String
+  action    String
+  details   String
+  targetId  String?
+  ip        String?
+}
+

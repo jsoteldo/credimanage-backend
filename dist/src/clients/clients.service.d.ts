@@ -1,0 +1,110 @@
+import { PrismaService } from '../prisma/prisma.service';
+import { AuditService } from '../audit/audit.service';
+export declare class ClientsService {
+    private prisma;
+    private auditService;
+    constructor(prisma: PrismaService, auditService: AuditService);
+    private mapPeriodFromDb;
+    private mapPeriodToDb;
+    private mapClient;
+    getClients(searchQuery?: string, status?: string): Promise<any[]>;
+    createClient(data: any, user: any): Promise<any>;
+    updateClient(id: string, data: any, user: any): Promise<any>;
+    deactivateClient(id: string, user: any): Promise<{
+        message: string;
+        client: any;
+    }>;
+    reactivateClient(id: string, user: any): Promise<{
+        message: string;
+        client: any;
+    }>;
+    deleteClient(id: string, user: any): Promise<{
+        message: string;
+    }>;
+    getStatement(id: string): Promise<{
+        client: any;
+        availableCredit: string | number;
+        purchases: {
+            id: string;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            product: string;
+            unitPrice: number;
+            quantity: number;
+            amount: number;
+            ticketNumber: string | null;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            debtType: string;
+            loanId: string | null;
+        }[];
+        payments: {
+            id: string;
+            approvedAt: Date | null;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            amount: number;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            loanId: string | null;
+            previousBalance: number;
+            resultingBalance: number;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            cardSurcharge: number | null;
+            totalCharged: number;
+            notes: string | null;
+            approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
+            createdByUserId: string | null;
+            approvedByUserId: string | null;
+            rejectedAt: Date | null;
+            rejectionReason: string | null;
+        }[];
+        loans: {
+            frequency: string;
+            installments: {
+                id: string;
+                createdAt: Date;
+                updatedAt: Date;
+                status: import("@prisma/client").$Enums.InstallmentStatus;
+                amount: number;
+                loanId: string;
+                capital: number;
+                paidAmount: number;
+                installmentNumber: number;
+                dueDate: string;
+                interest: number;
+                paidDate: Date | null;
+            }[];
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.LoanStatus;
+            clientId: string;
+            date: Date;
+            product: string | null;
+            ticketNumber: string | null;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            notes: string | null;
+            code: string;
+            capital: number;
+            interestRate: number;
+            interestAmount: number;
+            totalAmount: number;
+            installmentsCount: number;
+            installmentAmount: number;
+            firstDueDate: string;
+            paidAmount: number;
+            pendingAmount: number;
+            paidInstallmentsCount: number;
+        }[];
+    }>;
+}
