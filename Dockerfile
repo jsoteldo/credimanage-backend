@@ -1,20 +1,24 @@
-# 1. Usar una imagen de Node.js ligera como base
-FROM node:18-alpine
+# 1. Usar una versión de Node soportada por tu versión de Prisma
+FROM node:22-alpine
 
-# 2. Crear y establecer el directorio de trabajo dentro del contenedor
+# 2. Instalar OpenSSL (Requisito obligatorio de Prisma en Alpine Linux)
+RUN apk add --no-cache openssl
+
+# 3. Crear y establecer el directorio de trabajo
 WORKDIR /usr/src/app
 
-# 3. Copiar solo los archivos de dependencias primero (optimiza el caché de Docker)
+# 4. Copiar dependencias e instalar
 COPY package*.json ./
-
-# 4. Instalar las dependencias
 RUN npm install
 
-# 5. Copiar el resto del código de tu proyecto
+# 5. Copiar el resto del código
 COPY . .
 
-# 6. Compilar el código TypeScript de Nest.js a JavaScript
+# 6. Generar el cliente de Prisma (CRÍTICO para que la base de datos funcione)
+RUN npx prisma generate
+
+# 7. Compilar Nest.js
 RUN npm run build
 
-# 7. Iniciar la aplicación compilada
+# 8. Iniciar la aplicación
 CMD ["node", "dist/main"]
