@@ -1,22 +1,31 @@
 FROM node:22-alpine
+
+# Instalar dependencias necesarias
 RUN apk add --no-cache openssl procps
+
+# Crear y establecer el directorio de trabajo
 WORKDIR /usr/src/app
 
+# Copiar configuración de dependencias
 COPY package*.json ./
-# Forzamos la instalación de todas las dependencias (incluyendo las de desarrollo para asegurar que TypeScript esté presente)
+
+# Instalar TODAS las dependencias (necesarias para el build)
 RUN npm install
 
+# Instalar el CLI de Nest de forma global para garantizar que 'nest build' funcione
+RUN npm install -g @nestjs/cli
+
+# Copiar el resto del código
 COPY . .
+
+# Generar Prisma
 RUN npx prisma generate
 
-# Ejecutamos el build estándar
-RUN npm run build
+# Forzar compilación explícita usando el CLI global
+RUN nest build
 
-# --- BLOQUE DE DIAGNÓSTICO ---
-# Esto imprimirá la lista de archivos reales en la consola de Cloud Build
-RUN echo "--- CONTENIDO DE LA RAÍZ ---" && ls -la
-RUN echo "--- CONTENIDO DE DIST ---" && ls -la dist || echo "🔥 LA CARPETA DIST NO SE CREO"
-
+# Exponer el puerto
 EXPOSE 8080
-# Usamos el script oficial de NestJS en lugar de buscar la ruta a mano
-CMD ["npm", "run", "start:prod"]
+
+# Usar el comando nativo de node, apuntando al archivo generado
+CMD ["node", "dist/main.js"]
