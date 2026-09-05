@@ -8,7 +8,10 @@ export class ReportsController {
   constructor(private reportsService: ReportsService) {}
 
   @Get('crediApi/reports/balance')
-  async getBalanceReport(@Query('filter') filter?: string, @Query('q') q?: string) {
+  async getBalanceReport(
+    @Query('filter') filter?: string,
+    @Query('q') q?: string,
+  ) {
     return this.reportsService.getBalanceReport(filter, q);
   }
 

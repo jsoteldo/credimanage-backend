@@ -116,9 +116,11 @@ export declare class AdminService {
     getAnnulledOperations(): Promise<{
         annulledPurchases: {
             id: string;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             product: string;
             unitPrice: number;
             quantity: number;
@@ -134,9 +136,11 @@ export declare class AdminService {
         annulledPayments: {
             id: string;
             approvedAt: Date | null;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             amount: number;
             registeredBy: string;
             annulledAt: Date | null;
@@ -149,6 +153,8 @@ export declare class AdminService {
             cardSurcharge: number | null;
             totalCharged: number;
             notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
             approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
             createdByUserId: string | null;
             approvedByUserId: string | null;

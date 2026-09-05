@@ -2,28 +2,30 @@ import { ClientsService } from './clients.service';
 export declare class ClientsController {
     private clientsService;
     constructor(clientsService: ClientsService);
-    getClients(q?: string, status?: string): Promise<any[]>;
-    createClient(body: any, req: any): Promise<any>;
-    updateClient(id: string, body: any, req: any): Promise<any>;
+    getClients(q?: string, status?: string): Promise<(import("./client.dto").ClientResponseDto | null)[]>;
+    createClient(body: any, req: any): Promise<import("./client.dto").ClientResponseDto | null>;
+    updateClient(id: string, body: any, req: any): Promise<import("./client.dto").ClientResponseDto | null>;
     deactivateClient(id: string, req: any): Promise<{
         message: string;
-        client: any;
+        client: import("./client.dto").ClientResponseDto | null;
     }>;
     reactivateClient(id: string, req: any): Promise<{
         message: string;
-        client: any;
+        client: import("./client.dto").ClientResponseDto | null;
     }>;
     deleteClient(id: string, req: any): Promise<{
         message: string;
     }>;
     getStatement(id: string): Promise<{
-        client: any;
+        client: import("./client.dto").ClientResponseDto;
         availableCredit: string | number;
         purchases: {
             id: string;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             product: string;
             unitPrice: number;
             quantity: number;
@@ -39,9 +41,11 @@ export declare class ClientsController {
         payments: {
             id: string;
             approvedAt: Date | null;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             amount: number;
             registeredBy: string;
             annulledAt: Date | null;
@@ -54,6 +58,8 @@ export declare class ClientsController {
             cardSurcharge: number | null;
             totalCharged: number;
             notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
             approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
             createdByUserId: string | null;
             approvedByUserId: string | null;

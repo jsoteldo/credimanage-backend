@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { toClientDto } from '../clients/client.dto';
 
 @Injectable()
 export class ReportsService {
@@ -26,29 +27,37 @@ export class ReportsService {
       where.currentBalance = { lt: 0 };
     }
 
-    let list = await this.prisma.client.findMany({
+    const list = await this.prisma.client.findMany({
       where,
+      include: {
+        openingSnapshots: {
+          where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+        },
+      },
       orderBy: { name: 'asc' },
     });
 
-    list = list.map((c) => ({
-      ...c,
-      paymentPeriod: c.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : c.paymentPeriod,
-    })) as any;
+    let report = list.map((c) => toClientDto(c)) as any[];
 
     if (normFilter === 'al límite') {
-      list = list.filter(
-        (c) => c.creditLimit > 0 && c.currentBalance >= c.creditLimit * 0.9 && c.currentBalance > 0
+      report = report.filter(
+        (c) =>
+          c.creditLimit > 0 &&
+          c.currentBalance >= c.creditLimit * 0.9 &&
+          c.currentBalance > 0,
       );
     }
 
     const allClients = await this.prisma.client.findMany();
     const clientsWithDebt = allClients.filter((c) => c.currentBalance > 0);
     const totalClientsDebt = clientsWithDebt.length;
-    const totalPortfolioAmount = clientsWithDebt.reduce((sum, c) => sum + c.currentBalance, 0);
+    const totalPortfolioAmount = clientsWithDebt.reduce(
+      (sum, c) => sum + c.currentBalance,
+      0,
+    );
 
     return {
-      report: list,
+      report,
       summary: {
         totalClientsDebt,
         totalPortfolioAmount,
@@ -63,11 +72,15 @@ export class ReportsService {
       where: { status: 'Activo' },
     });
 
-    const clientsWithDebt = activeClients.filter((c) => c.currentBalance > 0).length;
+    const clientsWithDebt = activeClients.filter(
+      (c) => c.currentBalance > 0,
+    ).length;
     const totalPendingDebt = activeClients
       .filter((c) => c.currentBalance > 0)
       .reduce((sum, c) => sum + c.currentBalance, 0);
-    const clientsWithBalanceInFavor = activeClients.filter((c) => c.currentBalance < 0).length;
+    const clientsWithBalanceInFavor = activeClients.filter(
+      (c) => c.currentBalance < 0,
+    ).length;
 
     // Today's payments (Active)
     const today = new Date();
@@ -85,10 +98,16 @@ export class ReportsService {
       },
     });
 
-    const todayPaymentsTotal = todayPayments.reduce((sum, p) => sum + p.amount, 0);
+    const todayPaymentsTotal = todayPayments.reduce(
+      (sum, p) => sum + p.amount,
+      0,
+    );
 
     const clientsAtLimit = activeClients.filter(
-      (c) => c.creditLimit > 0 && c.currentBalance >= c.creditLimit * 0.9 && c.currentBalance > 0
+      (c) =>
+        c.creditLimit > 0 &&
+        c.currentBalance >= c.creditLimit * 0.9 &&
+        c.currentBalance > 0,
     );
     const clientsAtLimitCount = clientsAtLimit.length;
     const clientsAtLimitNames = clientsAtLimit.map((c) => c.name);

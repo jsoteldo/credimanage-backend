@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ClientsService } from './clients.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -18,7 +29,11 @@ export class ClientsController {
   }
 
   @Put(':id')
-  async updateClient(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async updateClient(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.clientsService.updateClient(id, body, req.user);
   }
 

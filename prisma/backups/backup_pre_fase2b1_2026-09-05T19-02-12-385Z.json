@@ -1,0 +1,393 @@
+{
+  "metadata": {
+    "exportedAt": "2026-09-05T19:02:12.389Z",
+    "environment": "Neon PostgreSQL Production",
+    "migrationPhase": "FASE 2B.1 PRE-MIGRATION"
+  },
+  "counts": {
+    "clients": 2,
+    "purchases": 2,
+    "payments": 1,
+    "loans": 0,
+    "installments": 0,
+    "users": 1,
+    "auditLogs": 18,
+    "snapshots": 2,
+    "migrations": 1
+  },
+  "checksums": {
+    "clients": "720870654f133eee0698f79305affeddf135931e148b4f06b2201144654b7371",
+    "purchases": "3ff952da2b185f616aa1c6460408a400fd8fbcd03578831b82718b31ae02d434",
+    "payments": "ee351b14d95f1b612eaa9656eec8a7d7cdbb6b7eecb7732d9ec88997dd7f02a5",
+    "loans": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "installments": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "users": "5753117545c8433a5e4302928bdee22580982bdd9b1ca63f07de369b4cf4578c",
+    "auditLogs": "bb35a35867aaac93b923278b5cc3513d4c36d130ba3f29a8cdcaeb03b03ce1dd",
+    "snapshots": "356aaa8dfa5ad3b67075a19833669ea30570e07e7b7eb42e9e691336e4e53ae4",
+    "migrations": "440cd0895ab0bdd79bbfb8c72712f0b0b4285b2b2bfb687d47f7128ceb767b40"
+  },
+  "data": {
+    "clients": [
+      {
+        "id": "045c662f-0b0e-4b05-ae15-ab7a4e04769b",
+        "clientNumber": "CLI-1091",
+        "name": "Jorge Soteldo (Coach)",
+        "phone": "918217132",
+        "address": "Prolongacion Mexico 427",
+        "creditLimit": 1500,
+        "currentBalance": 6,
+        "paymentPeriod": "Mensual",
+        "paymentDay": "Día 15",
+        "nextDueDate": "2026-09-04",
+        "status": "Activo",
+        "createdAt": "2026-09-02T05:27:22.965Z",
+        "updatedAt": "2026-09-05T21:58:38.476Z",
+        "dailyDebtBalance": "6.00",
+        "bankDebtBalance": "0.00",
+        "balanceModelVersion": "BALANCE_MODEL_V1"
+      },
+      {
+        "id": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "clientNumber": "CLI-1051",
+        "name": "alexander lopez",
+        "phone": "935338100",
+        "address": "prolongacion mexico 374",
+        "creditLimit": 1000,
+        "currentBalance": 3,
+        "paymentPeriod": "Mensual",
+        "paymentDay": "Día 15",
+        "nextDueDate": "2026-09-09",
+        "status": "Activo",
+        "createdAt": "2026-09-02T20:05:39.746Z",
+        "updatedAt": "2026-09-05T21:58:38.476Z",
+        "dailyDebtBalance": "3.00",
+        "bankDebtBalance": "0.00",
+        "balanceModelVersion": "BALANCE_MODEL_V1"
+      }
+    ],
+    "purchases": [
+      {
+        "id": "4866b892-bf12-4757-9c50-4d94b40eda63",
+        "clientId": "045c662f-0b0e-4b05-ae15-ab7a4e04769b",
+        "date": "2026-09-03T21:54:05.282Z",
+        "product": "Compra a crédito en tienda / Cargo de consumo",
+        "unitPrice": 6,
+        "quantity": 1,
+        "amount": 6,
+        "ticketNumber": "CARGO-9913",
+        "registeredBy": "cristian castilla",
+        "status": "Activo",
+        "annulledAt": null,
+        "annulledBy": null,
+        "annulmentReason": null,
+        "debtType": "simple",
+        "loanId": null
+      },
+      {
+        "id": "704e3c80-3f99-4ba1-9682-fbd042f2fd00",
+        "clientId": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "date": "2026-09-03T21:50:33.650Z",
+        "product": "Compra a crédito en tienda / Cargo de consumo",
+        "unitPrice": 5,
+        "quantity": 1,
+        "amount": 5,
+        "ticketNumber": "CARGO-7725",
+        "registeredBy": "cristian castilla",
+        "status": "Activo",
+        "annulledAt": null,
+        "annulledBy": null,
+        "annulmentReason": null,
+        "debtType": "simple",
+        "loanId": null
+      }
+    ],
+    "payments": [
+      {
+        "id": "2cbe6a27-b479-4549-a5e7-57fe0293abf2",
+        "clientId": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "date": "2026-09-03T21:52:50.175Z",
+        "amount": 2,
+        "previousBalance": 5,
+        "resultingBalance": 3,
+        "paymentMethod": "Efectivo",
+        "cardSurcharge": null,
+        "totalCharged": 2,
+        "registeredBy": "cristian castilla",
+        "status": "Activo",
+        "notes": "Abono parcial registrado",
+        "annulledAt": null,
+        "annulledBy": null,
+        "annulmentReason": null,
+        "loanId": null,
+        "approvedStatus": "APPROVED",
+        "createdByUserId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "approvedByUserId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "approvedAt": "2026-09-03T21:52:50.233Z",
+        "rejectedAt": null,
+        "rejectionReason": null
+      }
+    ],
+    "loans": [],
+    "installments": [],
+    "users": [
+      {
+        "id": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "name": "cristian castilla",
+        "email": "christian_castilla@hotmail.com",
+        "password": "$2b$10$HEiB4cL6QUOyejt74H38nO8cVxJhqsgo94RKqXzVHEr/DWstSsYvK",
+        "role": "Administrador",
+        "avatar": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
+        "active": true,
+        "approved": true,
+        "approvedBy": null,
+        "approvedAt": null,
+        "createdAt": "2026-09-01T20:52:22.213Z",
+        "updatedAt": "2026-09-01T20:52:22.213Z"
+      }
+    ],
+    "auditLogs": [
+      {
+        "id": "09ea1723-00bf-4d29-85d0-0111caf12f6d",
+        "timestamp": "2026-09-03T21:17:26.503Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "DESACTIVAR_CLIENTE",
+        "details": "Cliente desactivado: alexander lopez (CLI-1080). Traceabilidad histórica conservada.",
+        "targetId": "d45799a4-2c30-453b-8c9d-4cfd8e78e551",
+        "ip": null
+      },
+      {
+        "id": "0d212c26-12e4-441e-a86b-9d312c1e79f2",
+        "timestamp": "2026-09-02T20:05:39.764Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "CREAR_CLIENTE",
+        "details": "Nuevo cliente registrado: alexander lopez (CLI-1051) - Periodo: Mensual - Límite S/ 1000.00",
+        "targetId": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "ip": null
+      },
+      {
+        "id": "1c80f74b-6022-4924-a438-106cea5cdf91",
+        "timestamp": "2026-09-02T20:04:39.224Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "4077865c-ef18-4aad-a81b-de9e5e183066",
+        "timestamp": "2026-09-02T05:24:10.892Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "DESHABILITAR_USUARIO",
+        "details": "Usuario Sofía Castro (Cajera) deshabilitado por Administrador",
+        "targetId": "usr-2",
+        "ip": null
+      },
+      {
+        "id": "424082b9-0493-4f45-8c3f-7dd07303f39c",
+        "timestamp": "2026-09-02T05:23:28.528Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "69b4c00a-4672-415f-91d5-2fdb935e8826",
+        "timestamp": "2026-09-03T21:54:05.299Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "COMPRA_CREDITO",
+        "details": "Compra a crédito registrada por S/ 6.00 (Compra a crédito en tienda / Cargo de consumo) para Jorge Soteldo (Coach). Nuevo saldo: S/ 6.00",
+        "targetId": "4866b892-bf12-4757-9c50-4d94b40eda63",
+        "ip": null
+      },
+      {
+        "id": "73a4c911-651d-456d-b0a7-97ab917a0375",
+        "timestamp": "2026-09-04T20:49:41.120Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "7633cc0f-de90-45a3-845b-6d338969eece",
+        "timestamp": "2026-09-02T20:33:38.968Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "DESACTIVAR_CLIENTE",
+        "details": "Cliente desactivado: alexander lopez (CLI-1051). Traceabilidad histórica conservada.",
+        "targetId": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "ip": null
+      },
+      {
+        "id": "89182916-18db-447c-82b3-b3a9f4fa00a3",
+        "timestamp": "2026-09-02T20:33:52.962Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "REACTIVAR_CLIENTE",
+        "details": "Cliente reactivado: alexander lopez (CLI-1051).",
+        "targetId": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "ip": null
+      },
+      {
+        "id": "946a19df-0433-47ad-8f0b-ca0ffefecf4f",
+        "timestamp": "2026-09-03T21:52:50.243Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "APROBAR_ABONO",
+        "details": "Abono de S/ 2.00 aprobado para alexander lopez. Saldo anterior: S/ 5.00, Nuevo saldo: S/ 3.00",
+        "targetId": "2cbe6a27-b479-4549-a5e7-57fe0293abf2",
+        "ip": null
+      },
+      {
+        "id": "99c01be1-303e-4c8e-bb2c-dd74a38e9349",
+        "timestamp": "2026-09-02T05:22:13.501Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "9f17e2c5-cb3e-4f03-9145-061d645c9811",
+        "timestamp": "2026-09-02T22:21:43.230Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "a3527bcb-1aa0-44bd-983b-926728cfff8d",
+        "timestamp": "2026-09-03T21:49:14.372Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "b0e9a91d-e3d7-4f86-b742-0cfec0951813",
+        "timestamp": "2026-09-03T21:16:00.174Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "b1c67bf7-4789-4dba-b8b3-c4af944ed853",
+        "timestamp": "2026-09-02T05:27:22.974Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "CREAR_CLIENTE",
+        "details": "Nuevo cliente registrado: Jorge Soteldo (Coach) (CLI-1091) - Periodo: Mensual - Límite S/ 1500.00",
+        "targetId": "045c662f-0b0e-4b05-ae15-ab7a4e04769b",
+        "ip": null
+      },
+      {
+        "id": "c77342bb-9690-41ff-b24b-017ed9b2d548",
+        "timestamp": "2026-09-03T21:17:00.798Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "CREAR_CLIENTE",
+        "details": "Nuevo cliente registrado: alexander lopez (CLI-1080) - Periodo: Mensual - Límite S/ 1000.00",
+        "targetId": "d45799a4-2c30-453b-8c9d-4cfd8e78e551",
+        "ip": null
+      },
+      {
+        "id": "ebd68275-a0b3-4589-89db-3eddb96bbd84",
+        "timestamp": "2026-09-03T21:05:20.224Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "INICIO_SESION",
+        "details": "Inicio de sesión exitoso como Administrador",
+        "targetId": null,
+        "ip": null
+      },
+      {
+        "id": "fbb5afd7-1e22-4955-bf8b-8d336a9850c1",
+        "timestamp": "2026-09-03T21:50:33.681Z",
+        "userId": "8d7e8131-112e-4546-9183-f09e545c7298",
+        "userName": "cristian castilla",
+        "userRole": "Administrador",
+        "action": "COMPRA_CREDITO",
+        "details": "Compra a crédito registrada por S/ 5.00 (Compra a crédito en tienda / Cargo de consumo) para alexander lopez. Nuevo saldo: S/ 5.00",
+        "targetId": "704e3c80-3f99-4ba1-9682-fbd042f2fd00",
+        "ip": null
+      }
+    ],
+    "snapshots": [
+      {
+        "id": "1cd75c8f-f968-4dd2-acf1-02dc4c44cb44",
+        "clientId": "9c482651-44f0-4b21-8429-b9ab3ec644dc",
+        "migrationVersion": "BALANCE_MODEL_V1",
+        "cutOffDate": "2026-09-05T16:58:38.663Z",
+        "dailyDebtOpeningBalance": "3.00",
+        "bankDebtOpeningBalance": "0.00",
+        "currentOpeningBalance": "3.00",
+        "creditExposureOpening": "3.00",
+        "legacyUnknownPaymentCount": 1,
+        "legacyMixedPaymentCount": 0,
+        "status": "ACTIVO",
+        "reconciliationRef": "535f97dfe4bfd2e3c364b05b8e1fd7d0e6c548a33c4ebb02636e3589f8e26da6",
+        "createdAt": "2026-09-05T21:58:38.476Z"
+      },
+      {
+        "id": "806ea47b-e867-4689-8d92-57a6da37c6df",
+        "clientId": "045c662f-0b0e-4b05-ae15-ab7a4e04769b",
+        "migrationVersion": "BALANCE_MODEL_V1",
+        "cutOffDate": "2026-09-05T16:58:38.663Z",
+        "dailyDebtOpeningBalance": "6.00",
+        "bankDebtOpeningBalance": "0.00",
+        "currentOpeningBalance": "6.00",
+        "creditExposureOpening": "6.00",
+        "legacyUnknownPaymentCount": 0,
+        "legacyMixedPaymentCount": 0,
+        "status": "ACTIVO",
+        "reconciliationRef": "4adffa0e6c2116a35b7bed35d952065df6d7d6f9766d2612aff4aafb43b21c3d",
+        "createdAt": "2026-09-05T21:58:38.476Z"
+      }
+    ],
+    "migrations": [
+      {
+        "id": "557f0127-5282-45a8-9599-6bf2b0272f55",
+        "checksum": "2b823316109133a564d42f8338ba9e8350320fb6193b27cc28f1db5ebda5a90e",
+        "finished_at": "2026-09-05T16:48:48.151Z",
+        "migration_name": "20260905000000_balance_model_v1",
+        "logs": null,
+        "rolled_back_at": null,
+        "started_at": "2026-09-05T16:48:48.151Z",
+        "applied_steps_count": 1
+      }
+    ]
+  }
+}

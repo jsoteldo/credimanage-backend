@@ -53,11 +53,33 @@ let TransactionsController = class TransactionsController {
     async rejectPayment(id, reason, req) {
         return this.transactionsService.rejectPayment(id, reason, req.user);
     }
+    async registerDailyDebtPayment(id, body, req) {
+        return this.transactionsService.registerDailyDebtPayment(id, body, req.user);
+    }
+    async registerLoanPayment(loanId, body, req) {
+        return this.transactionsService.registerLoanPayment(loanId, body, req.user);
+    }
+    async annulPurchase(id, reason, req) {
+        return this.transactionsService.annulPurchase(id, reason, req.user);
+    }
+    async resolveAmbiguousReversal(id, body, req) {
+        return this.transactionsService.resolveAmbiguousReversal(id, body, req.user);
+    }
     async getPaymentsHistory(dateFilter, startDate, endDate, query) {
-        return this.transactionsService.getPaymentsHistory({ dateFilter, startDate, endDate, query });
+        return this.transactionsService.getPaymentsHistory({
+            dateFilter,
+            startDate,
+            endDate,
+            query,
+        });
     }
     async getPurchasesHistory(dateFilter, startDate, endDate, query) {
-        return this.transactionsService.getPurchasesHistory({ dateFilter, startDate, endDate, query });
+        return this.transactionsService.getPurchasesHistory({
+            dateFilter,
+            startDate,
+            endDate,
+            query,
+        });
     }
 };
 exports.TransactionsController = TransactionsController;
@@ -148,6 +170,44 @@ __decorate([
     __metadata("design:paramtypes", [String, String, Object]),
     __metadata("design:returntype", Promise)
 ], TransactionsController.prototype, "rejectPayment", null);
+__decorate([
+    (0, common_1.Post)(['crediApi/clients/:id/debt-payment', 'api/clients/:id/debt-payment']),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], TransactionsController.prototype, "registerDailyDebtPayment", null);
+__decorate([
+    (0, common_1.Post)(['crediApi/loans/:loanId/payment', 'api/loans/:loanId/payment']),
+    __param(0, (0, common_1.Param)('loanId')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], TransactionsController.prototype, "registerLoanPayment", null);
+__decorate([
+    (0, roles_decorator_1.Roles)('Administrador'),
+    (0, common_1.Post)(['crediApi/purchases/:id/annul', 'api/purchases/:id/annul']),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)('reason')),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Object]),
+    __metadata("design:returntype", Promise)
+], TransactionsController.prototype, "annulPurchase", null);
+__decorate([
+    (0, roles_decorator_1.Roles)('Administrador'),
+    (0, common_1.Post)(['crediApi/payments/:id/resolve-ambiguous-reversal', 'api/payments/:id/resolve-ambiguous-reversal']),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.Req)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], TransactionsController.prototype, "resolveAmbiguousReversal", null);
 __decorate([
     (0, common_1.Get)('crediApi/payments/history'),
     __param(0, (0, common_1.Query)('dateFilter')),

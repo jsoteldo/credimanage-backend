@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ReportsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const client_dto_1 = require("../clients/client.dto");
 let ReportsService = class ReportsService {
     prisma;
     constructor(prisma) {
@@ -37,23 +38,27 @@ let ReportsService = class ReportsService {
         else if (normFilter === 'saldo a favor') {
             where.currentBalance = { lt: 0 };
         }
-        let list = await this.prisma.client.findMany({
+        const list = await this.prisma.client.findMany({
             where,
+            include: {
+                openingSnapshots: {
+                    where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+                },
+            },
             orderBy: { name: 'asc' },
         });
-        list = list.map((c) => ({
-            ...c,
-            paymentPeriod: c.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : c.paymentPeriod,
-        }));
+        let report = list.map((c) => (0, client_dto_1.toClientDto)(c));
         if (normFilter === 'al límite') {
-            list = list.filter((c) => c.creditLimit > 0 && c.currentBalance >= c.creditLimit * 0.9 && c.currentBalance > 0);
+            report = report.filter((c) => c.creditLimit > 0 &&
+                c.currentBalance >= c.creditLimit * 0.9 &&
+                c.currentBalance > 0);
         }
         const allClients = await this.prisma.client.findMany();
         const clientsWithDebt = allClients.filter((c) => c.currentBalance > 0);
         const totalClientsDebt = clientsWithDebt.length;
         const totalPortfolioAmount = clientsWithDebt.reduce((sum, c) => sum + c.currentBalance, 0);
         return {
-            report: list,
+            report,
             summary: {
                 totalClientsDebt,
                 totalPortfolioAmount,
@@ -84,7 +89,9 @@ let ReportsService = class ReportsService {
             },
         });
         const todayPaymentsTotal = todayPayments.reduce((sum, p) => sum + p.amount, 0);
-        const clientsAtLimit = activeClients.filter((c) => c.creditLimit > 0 && c.currentBalance >= c.creditLimit * 0.9 && c.currentBalance > 0);
+        const clientsAtLimit = activeClients.filter((c) => c.creditLimit > 0 &&
+            c.currentBalance >= c.creditLimit * 0.9 &&
+            c.currentBalance > 0);
         const clientsAtLimitCount = clientsAtLimit.length;
         const clientsAtLimitNames = clientsAtLimit.map((c) => c.name);
         return {

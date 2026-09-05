@@ -5,9 +5,11 @@ export declare class TransactionsController {
     addCreditPurchase(id: string, body: any, req: any): Promise<{
         purchase: {
             id: string;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             product: string;
             unitPrice: number;
             quantity: number;
@@ -20,21 +22,7 @@ export declare class TransactionsController {
             debtType: string;
             loanId: string | null;
         };
-        client: {
-            paymentPeriod: string;
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            clientNumber: string;
-            phone: string;
-            address: string;
-            creditLimit: number;
-            currentBalance: number;
-            paymentDay: string;
-            nextDueDate: string;
-            status: import("@prisma/client").$Enums.ClientStatus;
-        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
     }>;
     createLoanCredit(id: string, body: any, req: any): Promise<{
         loan: {
@@ -80,9 +68,11 @@ export declare class TransactionsController {
         };
         purchase: {
             id: string;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             product: string;
             unitPrice: number;
             quantity: number;
@@ -95,21 +85,7 @@ export declare class TransactionsController {
             debtType: string;
             loanId: string | null;
         };
-        client: {
-            paymentPeriod: string;
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            clientNumber: string;
-            phone: string;
-            address: string;
-            creditLimit: number;
-            currentBalance: number;
-            paymentDay: string;
-            nextDueDate: string;
-            status: import("@prisma/client").$Enums.ClientStatus;
-        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
         message: string;
     }>;
     getClientLoans(id: string): Promise<({
@@ -225,35 +201,17 @@ export declare class TransactionsController {
             pendingAmount: number;
             paidInstallmentsCount: number;
         };
-        client: {
-            paymentPeriod: string;
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            clientNumber: string;
-            phone: string;
-            address: string;
-            creditLimit: number;
-            currentBalance: number;
-            paymentDay: string;
-            nextDueDate: string;
-            status: import("@prisma/client").$Enums.ClientStatus;
-        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
     }>;
     registerPayment(id: string, body: any, req: any): Promise<{
-        payment: any;
-        client: any;
-        message: string;
-    }>;
-    annulPayment(id: string, reason: string, req: any): Promise<{
-        message: string;
         payment: {
             id: string;
             approvedAt: Date | null;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             amount: number;
             registeredBy: string;
             annulledAt: Date | null;
@@ -266,27 +224,48 @@ export declare class TransactionsController {
             cardSurcharge: number | null;
             totalCharged: number;
             notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
             approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
             createdByUserId: string | null;
             approvedByUserId: string | null;
             rejectedAt: Date | null;
             rejectionReason: string | null;
         };
-        client: {
-            paymentPeriod: string;
+        client: import("../clients/client.dto").ClientResponseDto | null;
+        message: string;
+    }>;
+    annulPayment(id: string, reason: string, req: any): Promise<{
+        message: string;
+        payment: {
             id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            clientNumber: string;
-            phone: string;
-            address: string;
-            creditLimit: number;
-            currentBalance: number;
-            paymentDay: string;
-            nextDueDate: string;
-            status: import("@prisma/client").$Enums.ClientStatus;
+            approvedAt: Date | null;
+            createdAt: Date | null;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            isBaselineMovement: boolean;
+            amount: number;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            loanId: string | null;
+            previousBalance: number;
+            resultingBalance: number;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            cardSurcharge: number | null;
+            totalCharged: number;
+            notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
+            approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
+            createdByUserId: string | null;
+            approvedByUserId: string | null;
+            rejectedAt: Date | null;
+            rejectionReason: string | null;
         };
+        client: import("../clients/client.dto").ClientResponseDto | null;
     }>;
     getPendingPayments(): Promise<({
         client: {
@@ -296,9 +275,11 @@ export declare class TransactionsController {
     } & {
         id: string;
         approvedAt: Date | null;
+        createdAt: Date | null;
         status: import("@prisma/client").$Enums.OperationStatus;
         clientId: string;
         date: Date;
+        isBaselineMovement: boolean;
         amount: number;
         registeredBy: string;
         annulledAt: Date | null;
@@ -311,6 +292,8 @@ export declare class TransactionsController {
         cardSurcharge: number | null;
         totalCharged: number;
         notes: string | null;
+        targetType: string | null;
+        allocations: import("@prisma/client/runtime/client").JsonValue | null;
         approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
         createdByUserId: string | null;
         approvedByUserId: string | null;
@@ -326,9 +309,11 @@ export declare class TransactionsController {
         payment: {
             id: string;
             approvedAt: Date | null;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             amount: number;
             registeredBy: string;
             annulledAt: Date | null;
@@ -341,12 +326,133 @@ export declare class TransactionsController {
             cardSurcharge: number | null;
             totalCharged: number;
             notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
             approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
             createdByUserId: string | null;
             approvedByUserId: string | null;
             rejectedAt: Date | null;
             rejectionReason: string | null;
         };
+    }>;
+    registerDailyDebtPayment(id: string, body: any, req: any): Promise<{
+        payment: {
+            id: string;
+            approvedAt: Date | null;
+            createdAt: Date | null;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            isBaselineMovement: boolean;
+            amount: number;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            loanId: string | null;
+            previousBalance: number;
+            resultingBalance: number;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            cardSurcharge: number | null;
+            totalCharged: number;
+            notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
+            approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
+            createdByUserId: string | null;
+            approvedByUserId: string | null;
+            rejectedAt: Date | null;
+            rejectionReason: string | null;
+        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
+        message: string;
+    }>;
+    registerLoanPayment(loanId: string, body: any, req: any): Promise<{
+        payment: {
+            id: string;
+            approvedAt: Date | null;
+            createdAt: Date | null;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            isBaselineMovement: boolean;
+            amount: number;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            loanId: string | null;
+            previousBalance: number;
+            resultingBalance: number;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            cardSurcharge: number | null;
+            totalCharged: number;
+            notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
+            approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
+            createdByUserId: string | null;
+            approvedByUserId: string | null;
+            rejectedAt: Date | null;
+            rejectionReason: string | null;
+        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
+        message: string;
+    }>;
+    annulPurchase(id: string, reason: string, req: any): Promise<{
+        message: string;
+        purchase: {
+            id: string;
+            createdAt: Date | null;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            isBaselineMovement: boolean;
+            product: string;
+            unitPrice: number;
+            quantity: number;
+            amount: number;
+            ticketNumber: string | null;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            debtType: string;
+            loanId: string | null;
+        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
+    }>;
+    resolveAmbiguousReversal(id: string, body: any, req: any): Promise<{
+        message: string;
+        payment: {
+            id: string;
+            approvedAt: Date | null;
+            createdAt: Date | null;
+            status: import("@prisma/client").$Enums.OperationStatus;
+            clientId: string;
+            date: Date;
+            isBaselineMovement: boolean;
+            amount: number;
+            registeredBy: string;
+            annulledAt: Date | null;
+            annulledBy: string | null;
+            annulmentReason: string | null;
+            loanId: string | null;
+            previousBalance: number;
+            resultingBalance: number;
+            paymentMethod: import("@prisma/client").$Enums.PaymentMethod;
+            cardSurcharge: number | null;
+            totalCharged: number;
+            notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
+            approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
+            createdByUserId: string | null;
+            approvedByUserId: string | null;
+            rejectedAt: Date | null;
+            rejectionReason: string | null;
+        };
+        client: import("../clients/client.dto").ClientResponseDto | null;
     }>;
     getPaymentsHistory(dateFilter?: string, startDate?: string, endDate?: string, query?: string): Promise<{
         payments: {
@@ -356,9 +462,11 @@ export declare class TransactionsController {
             client: undefined;
             id: string;
             approvedAt: Date | null;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             amount: number;
             registeredBy: string;
             annulledAt: Date | null;
@@ -371,6 +479,8 @@ export declare class TransactionsController {
             cardSurcharge: number | null;
             totalCharged: number;
             notes: string | null;
+            targetType: string | null;
+            allocations: import("@prisma/client/runtime/client").JsonValue | null;
             approvedStatus: import("@prisma/client").$Enums.PaymentStatus;
             createdByUserId: string | null;
             approvedByUserId: string | null;
@@ -389,9 +499,11 @@ export declare class TransactionsController {
             clientPhone: string;
             client: undefined;
             id: string;
+            createdAt: Date | null;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
+            isBaselineMovement: boolean;
             product: string;
             unitPrice: number;
             quantity: number;

@@ -13,6 +13,8 @@ exports.ClientsService = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const audit_service_1 = require("../audit/audit.service");
+const client_1 = require("@prisma/client");
+const client_dto_1 = require("./client.dto");
 let ClientsService = class ClientsService {
     prisma;
     auditService;
@@ -21,9 +23,7 @@ let ClientsService = class ClientsService {
         this.auditService = auditService;
     }
     mapPeriodFromDb(period) {
-        if (period === 'DiaFijo')
-            return 'Día Fijo';
-        return period;
+        return (0, client_dto_1.mapPeriodFromDb)(period);
     }
     mapPeriodToDb(period) {
         if (period === 'Día Fijo')
@@ -35,12 +35,7 @@ let ClientsService = class ClientsService {
         return 'Mensual';
     }
     mapClient(c) {
-        if (!c)
-            return null;
-        return {
-            ...c,
-            paymentPeriod: this.mapPeriodFromDb(c.paymentPeriod),
-        };
+        return (0, client_dto_1.toClientDto)(c);
     }
     async getClients(searchQuery = '', status = 'todos') {
         const where = {};
@@ -73,6 +68,11 @@ let ClientsService = class ClientsService {
         }
         const list = await this.prisma.client.findMany({
             where,
+            include: {
+                openingSnapshots: {
+                    where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+                },
+            },
             orderBy: { createdAt: 'desc' },
         });
         return list.map((c) => this.mapClient(c));
@@ -91,6 +91,10 @@ let ClientsService = class ClientsService {
                 address: data.address ? data.address.trim() : '',
                 creditLimit: data.creditLimit !== undefined ? parseFloat(data.creditLimit) : 0,
                 currentBalance: 0,
+                dailyDebtBalance: new client_1.Prisma.Decimal(0),
+                bankDebtBalance: new client_1.Prisma.Decimal(0),
+                balanceModelVersion: 'BALANCE_MODEL_V1',
+                balanceOrigin: 'NATIVE_V1',
                 paymentPeriod: this.mapPeriodToDb(data.paymentPeriod),
                 paymentDay: data.paymentDay ? data.paymentDay.trim() : '',
                 nextDueDate: data.nextDueDate ? data.nextDueDate.trim() : '',
@@ -111,10 +115,23 @@ let ClientsService = class ClientsService {
                 name: data.name !== undefined ? data.name.trim() : existing.name,
                 phone: data.phone !== undefined ? data.phone.trim() : existing.phone,
                 address: data.address !== undefined ? data.address.trim() : existing.address,
-                creditLimit: data.creditLimit !== undefined ? parseFloat(data.creditLimit) : existing.creditLimit,
-                paymentPeriod: data.paymentPeriod !== undefined ? this.mapPeriodToDb(data.paymentPeriod) : existing.paymentPeriod,
-                paymentDay: data.paymentDay !== undefined ? data.paymentDay.trim() : existing.paymentDay,
-                nextDueDate: data.nextDueDate !== undefined ? data.nextDueDate.trim() : existing.nextDueDate,
+                creditLimit: data.creditLimit !== undefined
+                    ? parseFloat(data.creditLimit)
+                    : existing.creditLimit,
+                paymentPeriod: data.paymentPeriod !== undefined
+                    ? this.mapPeriodToDb(data.paymentPeriod)
+                    : existing.paymentPeriod,
+                paymentDay: data.paymentDay !== undefined
+                    ? data.paymentDay.trim()
+                    : existing.paymentDay,
+                nextDueDate: data.nextDueDate !== undefined
+                    ? data.nextDueDate.trim()
+                    : existing.nextDueDate,
+            },
+            include: {
+                openingSnapshots: {
+                    where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+                },
             },
         });
         await this.auditService.logAudit(user.id, user.name, user.role, 'MODIFICACION_CLIENTE', `Datos de cliente modificados: ${updated.name} (${updated.clientNumber}). Periodo: ${data.paymentPeriod || this.mapPeriodFromDb(updated.paymentPeriod)}, Cobro: ${updated.nextDueDate || 'Sin fecha'}.`, updated.id);
@@ -136,6 +153,11 @@ let ClientsService = class ClientsService {
         const updated = await this.prisma.client.update({
             where: { id },
             data: { status: 'Desactivado' },
+            include: {
+                openingSnapshots: {
+                    where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+                },
+            },
         });
         await this.auditService.logAudit(user.id, user.name, user.role, 'DESACTIVAR_CLIENTE', `Cliente desactivado: ${updated.name} (${updated.clientNumber}). Traceabilidad histórica conservada.`, updated.id);
         return {
@@ -151,6 +173,11 @@ let ClientsService = class ClientsService {
         const updated = await this.prisma.client.update({
             where: { id },
             data: { status: 'Activo' },
+            include: {
+                openingSnapshots: {
+                    where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+                },
+            },
         });
         await this.auditService.logAudit(user.id, user.name, user.role, 'REACTIVAR_CLIENTE', `Cliente reactivado: ${updated.name} (${updated.clientNumber}).`, updated.id);
         return {
@@ -171,9 +198,15 @@ let ClientsService = class ClientsService {
                 throw new common_1.BadRequestException(`Regla de Negocio: No es posible eliminar un cliente con saldo a favor (S/ ${Math.abs(client.currentBalance).toFixed(2)}). El saldo debe ser exactamente S/ 0.00.`);
             }
         }
-        const purchasesCount = await this.prisma.creditPurchase.count({ where: { clientId: id } });
-        const paymentsCount = await this.prisma.payment.count({ where: { clientId: id } });
-        const loansCount = await this.prisma.loan.count({ where: { clientId: id } });
+        const purchasesCount = await this.prisma.creditPurchase.count({
+            where: { clientId: id },
+        });
+        const paymentsCount = await this.prisma.payment.count({
+            where: { clientId: id },
+        });
+        const loansCount = await this.prisma.loan.count({
+            where: { clientId: id },
+        });
         if (purchasesCount > 0 || paymentsCount > 0 || loansCount > 0) {
             throw new common_1.BadRequestException({
                 error: `Regla de Auditoría: El cliente posee compras, abonos o créditos en su historial. Por trazabilidad legal y financiera no se permite borrado físico. Se recomienda la opción "Desactivar Cliente".`,
@@ -185,7 +218,14 @@ let ClientsService = class ClientsService {
         return { message: 'Cliente eliminado físicamente con éxito' };
     }
     async getStatement(id) {
-        const client = await this.prisma.client.findUnique({ where: { id } });
+        const client = await this.prisma.client.findUnique({
+            where: { id },
+            include: {
+                openingSnapshots: {
+                    where: { status: 'ACTIVO', migrationVersion: 'BALANCE_MODEL_V1' },
+                },
+            },
+        });
         if (!client) {
             throw new common_1.NotFoundException('Cliente no encontrado');
         }
@@ -202,10 +242,12 @@ let ClientsService = class ClientsService {
             include: { installments: { orderBy: { installmentNumber: 'asc' } } },
             orderBy: { date: 'desc' },
         });
-        const availableCredit = client.creditLimit > 0 ? client.creditLimit - client.currentBalance : 0;
+        const clientDto = this.mapClient(client);
         return {
-            client: this.mapClient(client),
-            availableCredit: client.creditLimit > 0 ? Math.max(0, availableCredit) : 'Sin límite',
+            client: clientDto,
+            availableCredit: clientDto.availableCredit != null
+                ? clientDto.availableCredit
+                : 'Sin límite',
             purchases,
             payments,
             loans: loans.map((loan) => ({

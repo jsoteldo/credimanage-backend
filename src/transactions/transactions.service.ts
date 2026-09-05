@@ -1,17 +1,33 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  HttpException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { PaymentMethod, OperationStatus, PaymentPeriod } from '@prisma/client';
+import { BalanceSyncService, validatePaymentAllocations } from './balance-sync.service';
+import { PaymentMethod, OperationStatus, PaymentPeriod, Prisma } from '@prisma/client';
+import { toClientDto } from '../clients/client.dto';
 
 @Injectable()
 export class TransactionsService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService
+    private auditService: AuditService,
+    private balanceSyncService: BalanceSyncService,
   ) {}
 
+  private mapClient(c: any) {
+    return toClientDto(c);
+  }
+
   // Helpers to map date filters
-  private getDateFilterRange(dateFilter = 'today', startDate?: string, endDate?: string) {
+  private getDateFilterRange(
+    dateFilter = 'today',
+    startDate?: string,
+    endDate?: string,
+  ) {
     const start = new Date();
     const end = new Date();
 
@@ -37,7 +53,9 @@ export class TransactionsService {
       return { gte: firstDay, lte: lastDay };
     } else if (dateFilter === 'custom' && startDate) {
       const startCustom = new Date(`${startDate}T00:00:00`);
-      const endCustom = endDate ? new Date(`${endDate}T23:59:59`) : new Date(`${startDate}T23:59:59`);
+      const endCustom = endDate
+        ? new Date(`${endDate}T23:59:59`)
+        : new Date(`${startDate}T23:59:59`);
       return { gte: startCustom, lte: endCustom };
     }
 
@@ -46,77 +64,89 @@ export class TransactionsService {
   }
 
   async addCreditPurchase(clientId: string, data: any, user: any) {
-    const client = await this.prisma.client.findUnique({ where: { id: clientId } });
-    if (!client) {
-      throw new NotFoundException('Cliente no encontrado');
-    }
+    return this.prisma.$transaction(async (tx) => {
+      const client = await tx.client.findUnique({
+        where: { id: clientId },
+      });
+      if (!client) {
+        throw new NotFoundException('Cliente no encontrado');
+      }
 
-    const price = parseFloat(data.unitPrice) || 0;
-    const qty = parseInt(data.quantity, 10) || 1;
-    const totalAmount = price * qty;
+      const price = parseFloat(data.unitPrice) || 0;
+      const qty = parseInt(data.quantity, 10) || 1;
+      const totalAmount = Math.round(price * qty * 100) / 100;
 
-    if (totalAmount <= 0) {
-      throw new BadRequestException('El importe total de la compra debe ser mayor a S/ 0.00');
-    }
-
-    // Credit limit check
-    if (client.creditLimit > 0) {
-      const projectedBalance = client.currentBalance + totalAmount;
-      if (projectedBalance > client.creditLimit) {
+      if (totalAmount <= 0) {
         throw new BadRequestException(
-          `Límite de crédito excedido. Límite actual: S/ ${client.creditLimit.toFixed(2)}, Saldo actual: S/ ${client.currentBalance.toFixed(2)}, Exceso: S/ ${(projectedBalance - client.creditLimit).toFixed(2)}`
+          'El importe total de la compra debe ser mayor a S/ 0.00',
         );
       }
-    }
 
-    let purchaseDate = new Date();
-    if (data.date) {
-      const now = new Date();
-      const timePart = now.toISOString().split('T')[1] || '12:00:00.000Z';
-      const customIso = `${data.date}T${timePart}`;
-      const parsed = new Date(customIso);
-      if (!isNaN(parsed.getTime())) {
-        purchaseDate = parsed;
-      } else if (!isNaN(new Date(data.date).getTime())) {
-        purchaseDate = new Date(data.date);
+      // Credit limit check using credit exposure
+      const dailyDebt = client.dailyDebtBalance
+        ? Math.max(0, Number(client.dailyDebtBalance))
+        : Math.max(0, client.currentBalance);
+      const bankDebt = client.bankDebtBalance
+        ? Math.max(0, Number(client.bankDebtBalance))
+        : 0;
+      const currentExposure = dailyDebt + bankDebt;
+
+      if (client.creditLimit > 0) {
+        const projectedExposure = currentExposure + totalAmount;
+        if (projectedExposure > client.creditLimit) {
+          throw new BadRequestException(
+            `Límite de crédito excedido. Límite actual: S/ ${client.creditLimit.toFixed(2)}, Exposición actual: S/ ${currentExposure.toFixed(2)}, Exceso: S/ ${(projectedExposure - client.creditLimit).toFixed(2)}`,
+          );
+        }
       }
-    }
 
-    const newPurchase = await this.prisma.creditPurchase.create({
-      data: {
-        clientId,
-        date: purchaseDate,
-        product: data.product.trim(),
-        unitPrice: price,
-        quantity: qty,
-        amount: totalAmount,
-        ticketNumber: data.ticketNumber ? data.ticketNumber.trim() : `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
-        registeredBy: user.name,
-        status: 'Activo',
-      },
+      let purchaseDate = new Date();
+      if (data.date) {
+        const now = new Date();
+        const timePart = now.toISOString().split('T')[1] || '12:00:00.000Z';
+        const customIso = `${data.date}T${timePart}`;
+        const parsed = new Date(customIso);
+        if (!isNaN(parsed.getTime())) {
+          purchaseDate = parsed;
+        } else if (!isNaN(new Date(data.date).getTime())) {
+          purchaseDate = new Date(data.date);
+        }
+      }
+
+      const newPurchase = await tx.creditPurchase.create({
+        data: {
+          clientId,
+          date: purchaseDate,
+          isBaselineMovement: false,
+          product: data.product.trim(),
+          unitPrice: price,
+          quantity: qty,
+          amount: totalAmount,
+          ticketNumber: data.ticketNumber
+            ? data.ticketNumber.trim()
+            : `TKT-${Math.floor(1000 + Math.random() * 9000)}`,
+          registeredBy: user.name,
+          status: 'Activo',
+        },
+      });
+
+      const synced = await this.balanceSyncService.syncClientBalances(clientId, tx);
+      const updatedClient = await tx.client.findUnique({ where: { id: clientId } });
+
+      await this.auditService.logAudit(
+        user.id,
+        user.name,
+        user.role,
+        'COMPRA_CREDITO',
+        `Compra a crédito registrada por S/ ${totalAmount.toFixed(2)} (${newPurchase.product}) para ${client.name}. Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+        newPurchase.id,
+      );
+
+      return {
+        purchase: newPurchase,
+        client: this.mapClient(updatedClient),
+      };
     });
-
-    const updatedClient = await this.prisma.client.update({
-      where: { id: clientId },
-      data: { currentBalance: { increment: totalAmount } },
-    });
-
-    await this.auditService.logAudit(
-      user.id,
-      user.name,
-      user.role,
-      'COMPRA_CREDITO',
-      `Compra a crédito registrada por S/ ${totalAmount.toFixed(2)} (${newPurchase.product}) para ${client.name}. Nuevo saldo: S/ ${updatedClient.currentBalance.toFixed(2)}`,
-      newPurchase.id
-    );
-
-    return {
-      purchase: newPurchase,
-      client: {
-        ...updatedClient,
-        paymentPeriod: updatedClient.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : updatedClient.paymentPeriod,
-      },
-    };
   }
 
   async applyPaymentTransaction(tx: any, paymentId: string, adminUser: any) {
@@ -127,7 +157,9 @@ export class TransactionsService {
       throw new NotFoundException('Abono no encontrado');
     }
     if (payment.approvedStatus !== 'PENDING_APPROVAL') {
-      throw new BadRequestException('El abono ya ha sido procesado (aprobado o rechazado)');
+      throw new BadRequestException(
+        'El abono ya ha sido procesado (aprobado o rechazado)',
+      );
     }
 
     const clientId = payment.clientId;
@@ -138,113 +170,159 @@ export class TransactionsService {
 
     const payAmount = payment.amount;
 
-    // Distribute payment across active loans and installments
-    const activeLoans = await tx.loan.findMany({
-      where: { clientId, status: { in: ['Activo', 'Vencido'] } },
-      include: {
-        installments: {
-          where: { status: { in: ['Pendiente', 'Parcial', 'Vencida'] } },
-          orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
+    if (payment.targetType === 'dailyDebt') {
+      await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          previousBalance: client.currentBalance,
+          approvedStatus: 'APPROVED',
+          approvedByUserId: adminUser.id,
+          approvedAt: new Date(),
         },
-      },
-    });
+      });
 
-    let remainingPayment = payAmount;
-    let lastAffectedLoanId: string | null = null;
+      const synced = await this.balanceSyncService.syncClientBalances(clientId, tx);
+      await tx.payment.update({
+        where: { id: paymentId },
+        data: { resultingBalance: synced.currentBalance },
+      });
+
+      await this.auditService.logAudit(
+        adminUser.id,
+        adminUser.name,
+        adminUser.role,
+        'APROBAR_ABONO',
+        `Abono de deuda corriente de S/ ${payAmount.toFixed(2)} aprobado para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+        payment.id,
+      );
+
+      const updatedClient = await tx.client.findUnique({ where: { id: clientId } });
+      const updatedPayment = await tx.payment.findUnique({ where: { id: paymentId } });
+      return { payment: updatedPayment, client: updatedClient };
+    }
+
+    const bankAllocations = ((payment.allocations as any[]) || []).filter(
+      (a) => (a.targetType || a.type) === 'bankLoan',
+    );
+
     const todayStr = new Date().toISOString().split('T')[0];
+    const affectedLoanIds = new Set<string>();
 
-    const allInstallments = activeLoans
-      .flatMap((loan) =>
-        loan.installments.map((inst) => ({
-          ...inst,
-          loan,
-        }))
-      )
-      .sort((a, b) => {
-        if (a.dueDate !== b.dueDate) {
-          return a.dueDate.localeCompare(b.dueDate);
+    if (bankAllocations.length > 0) {
+      for (const alloc of bankAllocations) {
+        affectedLoanIds.add(alloc.loanId);
+        const inst = await tx.installment.findFirst({
+          where: {
+            loanId: alloc.loanId,
+            installmentNumber: alloc.installmentNumber,
+          },
+        });
+        if (inst) {
+          const newPaidAmount =
+            Math.round((inst.paidAmount + alloc.amount) * 100) / 100;
+          let instStatus: 'Pagada' | 'Parcial' | 'Pendiente' | 'Vencida' =
+            'Parcial';
+          if (newPaidAmount >= inst.amount - 0.001) {
+            instStatus = 'Pagada';
+          } else if (inst.dueDate < todayStr) {
+            instStatus = 'Vencida';
+          }
+          await tx.installment.update({
+            where: { id: inst.id },
+            data: {
+              paidAmount: newPaidAmount,
+              status: instStatus,
+              paidDate: instStatus === 'Pagada' ? new Date() : null,
+            },
+          });
         }
-        return a.installmentNumber - b.installmentNumber;
-      });
-
-    for (const inst of allInstallments) {
-      if (remainingPayment <= 0) break;
-
-      const unpaidAmount = Math.round((inst.amount - inst.paidAmount) * 100) / 100;
-      const toPay = Math.min(unpaidAmount, remainingPayment);
-
-      const newPaidAmount = Math.round((inst.paidAmount + toPay) * 100) / 100;
-      remainingPayment = Math.round((remainingPayment - toPay) * 100) / 100;
-
-      let instStatus: 'Pagada' | 'Parcial' | 'Pendiente' | 'Vencida' = 'Parcial';
-      if (newPaidAmount >= inst.amount - 0.001) {
-        instStatus = 'Pagada';
-      } else if (inst.dueDate < todayStr) {
-        instStatus = 'Vencida';
       }
-
-      await tx.installment.update({
-        where: { id: inst.id },
-        data: {
-          paidAmount: newPaidAmount,
-          status: instStatus,
-          paidDate: instStatus === 'Pagada' ? new Date() : null,
+    } else if (payment.targetType === 'bankLoan' && payment.loanId) {
+      affectedLoanIds.add(payment.loanId);
+      const pendingInst = await tx.installment.findMany({
+        where: {
+          loanId: payment.loanId,
+          status: { in: ['Pendiente', 'Parcial', 'Vencida'] },
         },
+        orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
       });
-
-      lastAffectedLoanId = inst.loanId;
+      let rem = payAmount;
+      for (const inst of pendingInst) {
+        if (rem <= 0) break;
+        const unpaid = Math.round((inst.amount - inst.paidAmount) * 100) / 100;
+        const toPay = Math.min(unpaid, rem);
+        const newPaidAmount = Math.round((inst.paidAmount + toPay) * 100) / 100;
+        rem = Math.round((rem - toPay) * 100) / 100;
+        let instStatus: 'Pagada' | 'Parcial' | 'Pendiente' | 'Vencida' =
+          'Parcial';
+        if (newPaidAmount >= inst.amount - 0.001) {
+          instStatus = 'Pagada';
+        } else if (inst.dueDate < todayStr) {
+          instStatus = 'Vencida';
+        }
+        await tx.installment.update({
+          where: { id: inst.id },
+          data: {
+            paidAmount: newPaidAmount,
+            status: instStatus,
+            paidDate: instStatus === 'Pagada' ? new Date() : null,
+          },
+        });
+      }
     }
 
-    for (const loan of activeLoans) {
-      const loanInstallments = await tx.installment.findMany({
-        where: { loanId: loan.id },
-      });
-
-      const totalPaid = loanInstallments.reduce((sum, inst) => sum + inst.paidAmount, 0);
-      const pending = Math.round((loan.totalAmount - totalPaid) * 100) / 100;
-      const paidCount = loanInstallments.filter((inst) => inst.status === 'Pagada').length;
-
-      let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' = 'Activo';
-      if (pending <= 0.01) {
-        newStatus = 'Pagado';
-      } else {
-        const hasOverdue = loanInstallments.some(
-          (inst) => inst.dueDate < todayStr && inst.status !== 'Pagada'
+    for (const loanId of affectedLoanIds) {
+      const loan = await tx.loan.findUnique({ where: { id: loanId } });
+      if (loan) {
+        const loanInstallments = await tx.installment.findMany({
+          where: { loanId },
+        });
+        const totalPaid = loanInstallments.reduce(
+          (sum, i) => sum + i.paidAmount,
+          0,
         );
-        if (hasOverdue) {
-          newStatus = 'Vencido';
+        const pending = Math.round((loan.totalAmount - totalPaid) * 100) / 100;
+        const paidCount = loanInstallments.filter(
+          (i) => i.status === 'Pagada',
+        ).length;
+        let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' = 'Activo';
+        if (pending <= 0.01) {
+          newStatus = 'Pagado';
+        } else {
+          const hasOverdue = loanInstallments.some(
+            (i) => i.dueDate < todayStr && i.status !== 'Pagada',
+          );
+          if (hasOverdue) newStatus = 'Vencido';
         }
+        await tx.loan.update({
+          where: { id: loanId },
+          data: {
+            paidAmount: totalPaid,
+            pendingAmount: pending,
+            paidInstallmentsCount: paidCount,
+            status: newStatus,
+          },
+        });
       }
-
-      await tx.loan.update({
-        where: { id: loan.id },
-        data: {
-          paidAmount: totalPaid,
-          pendingAmount: pending,
-          paidInstallmentsCount: paidCount,
-          status: newStatus,
-        },
-      });
     }
 
-    const previousBalance = client.currentBalance;
-    const resultingBalance = previousBalance - payAmount;
-
-    const updatedClient = await tx.client.update({
-      where: { id: clientId },
-      data: { currentBalance: resultingBalance },
-    });
-
-    const updatedPayment = await tx.payment.update({
+    await tx.payment.update({
       where: { id: paymentId },
       data: {
-        previousBalance,
-        resultingBalance,
+        previousBalance: client.currentBalance,
         approvedStatus: 'APPROVED',
         approvedByUserId: adminUser.id,
         approvedAt: new Date(),
-        loanId: lastAffectedLoanId || payment.loanId,
       },
+    });
+
+    const synced = await this.balanceSyncService.syncClientBalances(
+      clientId,
+      tx,
+    );
+    await tx.payment.update({
+      where: { id: paymentId },
+      data: { resultingBalance: synced.currentBalance },
     });
 
     await this.auditService.logAudit(
@@ -252,14 +330,17 @@ export class TransactionsService {
       adminUser.name,
       adminUser.role,
       'APROBAR_ABONO',
-      `Abono de S/ ${payAmount.toFixed(2)} aprobado para ${client.name}. Saldo anterior: S/ ${previousBalance.toFixed(2)}, Nuevo saldo: S/ ${resultingBalance.toFixed(2)}`,
-      payment.id
+      `Abono de S/ ${payAmount.toFixed(2)} aprobado para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+      payment.id,
     );
 
-    return {
-      payment: updatedPayment,
-      client: updatedClient,
-    };
+    const updatedClient = await tx.client.findUnique({
+      where: { id: clientId },
+    });
+    const updatedPayment = await tx.payment.findUnique({
+      where: { id: paymentId },
+    });
+    return { payment: updatedPayment, client: updatedClient };
   }
 
   async registerPayment(clientId: string, data: any, user: any) {
@@ -275,76 +356,566 @@ export class TransactionsService {
       }
 
       if (isNaN(payAmount) || payAmount <= 0) {
-        throw new BadRequestException('El importe del abono debe ser mayor a S/ 0.00');
+        throw new BadRequestException(
+          'El importe del abono debe ser mayor a S/ 0.00',
+        );
       }
 
-      // No permitir sobrepago accidental
       if (payAmount > client.currentBalance) {
         throw new BadRequestException(
-          `No se permite sobrepago. El abono solicitado (S/ ${payAmount.toFixed(2)}) supera el saldo deudor del cliente (S/ ${client.currentBalance.toFixed(2)})`
+          `No se permite sobrepago. El abono solicitado (S/ ${payAmount.toFixed(2)}) supera el saldo deudor del cliente (S/ ${client.currentBalance.toFixed(2)})`,
         );
       }
 
       const method = data.paymentMethod || 'Efectivo';
-      const cardSurcharge = method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+      const cardSurcharge =
+        method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
       const totalCharged = payAmount + cardSurcharge;
 
-      let defaultNote = data.isFullPayoff ? 'Liquidación automática de adeudo' : 'Abono parcial registrado';
+      let defaultNote = data.isFullPayoff
+        ? 'Liquidación automática de adeudo'
+        : 'Abono parcial registrado';
       if (method === 'Tarjeta') {
         defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
       }
 
-      // Create the payment record
+      const activeLoans = await tx.loan.findMany({
+        where: { clientId, status: { in: ['Activo', 'Vencido'] } },
+        include: {
+          installments: {
+            where: { status: { in: ['Pendiente', 'Parcial', 'Vencida'] } },
+            orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
+          },
+        },
+      });
+
+      const allInstallments = activeLoans
+        .flatMap((loan) =>
+          loan.installments.map((inst) => ({
+            ...inst,
+            loanId: inst.loanId || loan.id,
+            loan,
+          })),
+        )
+        .sort((a, b) => {
+          if (a.dueDate !== b.dueDate) {
+            return a.dueDate.localeCompare(b.dueDate);
+          }
+          return a.installmentNumber - b.installmentNumber;
+        });
+
+      let remainingPayment = payAmount;
+      const allocations: any[] = [];
+      let loanAmountTotal = 0;
+
+      for (const inst of allInstallments) {
+        if (remainingPayment <= 0) break;
+        const unpaidAmount =
+          Math.round((inst.amount - inst.paidAmount) * 100) / 100;
+        const toPay = Math.min(unpaidAmount, remainingPayment);
+        if (toPay > 0) {
+          allocations.push({
+            targetType: 'bankLoan',
+            loanId: inst.loanId,
+            installmentNumber: inst.installmentNumber,
+            amount: toPay,
+          });
+          loanAmountTotal = Math.round((loanAmountTotal + toPay) * 100) / 100;
+          remainingPayment = Math.round((remainingPayment - toPay) * 100) / 100;
+        }
+      }
+
+      if (remainingPayment > 0) {
+        allocations.push({
+          targetType: 'dailyDebt',
+          amount: remainingPayment,
+        });
+      }
+
+      let targetType: 'dailyDebt' | 'bankLoan' | 'legacyMixed' = 'dailyDebt';
+      if (loanAmountTotal > 0 && remainingPayment > 0) {
+        targetType = 'legacyMixed';
+      } else if (loanAmountTotal > 0) {
+        targetType = 'bankLoan';
+      } else {
+        targetType = 'dailyDebt';
+      }
+
+      const clientLoanIds = activeLoans.map((l) => l.id);
+      validatePaymentAllocations(
+        payAmount,
+        targetType,
+        allocations,
+        undefined,
+        clientLoanIds,
+      );
+
+      const isApproved = user.role === 'Administrador';
+
       const newPayment = await tx.payment.create({
         data: {
           clientId,
           date: new Date(),
+          isBaselineMovement: false,
           amount: payAmount,
           previousBalance: client.currentBalance,
-          resultingBalance: client.currentBalance, // stays same if pending
-          paymentMethod: method as any,
+          resultingBalance: client.currentBalance,
+          paymentMethod: method,
           cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
           totalCharged,
           registeredBy: user.name,
           status: 'Activo',
+          targetType,
+          allocations,
           notes: data.notes ? data.notes.trim() : defaultNote,
-          approvedStatus: user.role === 'Administrador' ? 'APPROVED' : 'PENDING_APPROVAL',
+          approvedStatus: isApproved ? 'APPROVED' : 'PENDING_APPROVAL',
           createdByUserId: user.id,
+          approvedByUserId: isApproved ? user.id : null,
+          approvedAt: isApproved ? new Date() : null,
         },
       });
 
-      if (user.role === 'Administrador') {
-        // Temporarily reset approvedStatus to PENDING_APPROVAL for application
+      if (isApproved) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const affectedLoanIds = new Set<string>();
+
+        for (const alloc of allocations) {
+          if (alloc.targetType === 'bankLoan') {
+            affectedLoanIds.add(alloc.loanId);
+            const inst = await tx.installment.findFirst({
+              where: {
+                loanId: alloc.loanId,
+                installmentNumber: alloc.installmentNumber,
+              },
+            });
+            if (inst) {
+              const newPaidAmount =
+                Math.round((inst.paidAmount + alloc.amount) * 100) / 100;
+              let instStatus: 'Pagada' | 'Parcial' | 'Pendiente' | 'Vencida' =
+                'Parcial';
+              if (newPaidAmount >= inst.amount - 0.001) {
+                instStatus = 'Pagada';
+              } else if (inst.dueDate < todayStr) {
+                instStatus = 'Vencida';
+              }
+              await tx.installment.update({
+                where: { id: inst.id },
+                data: {
+                  paidAmount: newPaidAmount,
+                  status: instStatus,
+                  paidDate: instStatus === 'Pagada' ? new Date() : null,
+                },
+              });
+            }
+          }
+        }
+
+        for (const loanId of affectedLoanIds) {
+          const loan = await tx.loan.findUnique({ where: { id: loanId } });
+          if (loan) {
+            const loanInstallments = await tx.installment.findMany({
+              where: { loanId },
+            });
+            const totalPaid = loanInstallments.reduce(
+              (sum, i) => sum + i.paidAmount,
+              0,
+            );
+            const pending =
+              Math.round((loan.totalAmount - totalPaid) * 100) / 100;
+            const paidCount = loanInstallments.filter(
+              (i) => i.status === 'Pagada',
+            ).length;
+            let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' =
+              'Activo';
+            if (pending <= 0.01) {
+              newStatus = 'Pagado';
+            } else {
+              const hasOverdue = loanInstallments.some(
+                (i) => i.dueDate < todayStr && i.status !== 'Pagada',
+              );
+              if (hasOverdue) newStatus = 'Vencido';
+            }
+            await tx.loan.update({
+              where: { id: loanId },
+              data: {
+                paidAmount: totalPaid,
+                pendingAmount: pending,
+                paidInstallmentsCount: paidCount,
+                status: newStatus,
+              },
+            });
+          }
+        }
+
+        const synced = await this.balanceSyncService.syncClientBalances(
+          clientId,
+          tx,
+        );
         await tx.payment.update({
           where: { id: newPayment.id },
-          data: { approvedStatus: 'PENDING_APPROVAL' }
+          data: { resultingBalance: synced.currentBalance },
         });
-        const applied = await this.applyPaymentTransaction(tx, newPayment.id, user);
+
+        await this.auditService.logAudit(
+          user.id,
+          user.name,
+          user.role,
+          'REGISTRO_ABONO',
+          `Abono de S/ ${payAmount.toFixed(2)} registrado y aprobado para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)} [LEGACY_PAYMENT_WARNING: Se recomienda usar endpoints específicos por cartera]`,
+          newPayment.id,
+        );
+
+        const updatedClient = await tx.client.findUnique({
+          where: { id: clientId },
+        });
         return {
-          payment: applied.payment,
-          client: {
-            ...applied.client,
-            paymentPeriod: applied.client.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : applied.client.paymentPeriod,
-          },
-          message: `Abono registrado y aprobado con éxito. Nuevo saldo: S/ ${applied.client.currentBalance.toFixed(2)}`,
+          payment: newPayment,
+          client: this.mapClient(updatedClient),
+          message: `Abono registrado y aprobado con éxito. Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
         };
       } else {
-        // Cajero
         await this.auditService.logAudit(
           user.id,
           user.name,
           user.role,
           'REGISTRO_ABONO_PENDIENTE',
           `Abono de S/ ${payAmount.toFixed(2)} registrado por ${user.name} y pendiente de aprobación`,
-          newPayment.id
+          newPayment.id,
         );
         return {
           payment: newPayment,
-          client: {
-            ...client,
-            paymentPeriod: client.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : client.paymentPeriod,
+          client: this.mapClient(client),
+          message:
+            'Abono registrado con éxito. Pendiente de aprobación por un Administrador.',
+        };
+      }
+    });
+  }
+
+  async registerDailyDebtPayment(clientId: string, data: any, user: any) {
+    return this.prisma.$transaction(async (tx) => {
+      const client = await tx.client.findUnique({ where: { id: clientId } });
+      if (!client) {
+        throw new NotFoundException('Cliente no encontrado');
+      }
+
+      let payAmount = parseFloat(data.amount);
+      if (data.isFullPayoff) {
+        const currentDaily =
+          client.dailyDebtBalance != null
+            ? Number(client.dailyDebtBalance)
+            : client.currentBalance;
+        if (currentDaily <= 0) {
+          throw new BadRequestException(
+            'El cliente no tiene deuda corriente pendiente para liquidar',
+          );
+        }
+        payAmount = currentDaily;
+      }
+
+      if (isNaN(payAmount) || payAmount <= 0) {
+        throw new BadRequestException(
+          'El importe del abono a deuda corriente debe ser mayor a S/ 0.00',
+        );
+      }
+
+      const method = data.paymentMethod || 'Efectivo';
+      const cardSurcharge =
+        method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+      const totalCharged = payAmount + cardSurcharge;
+
+      let defaultNote = data.isFullPayoff
+        ? 'Liquidación automática de deuda corriente'
+        : 'Abono a deuda corriente';
+      if (method === 'Tarjeta') {
+        defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
+      }
+
+      const allocations = [{ targetType: 'dailyDebt', amount: payAmount }];
+      validatePaymentAllocations(payAmount, 'dailyDebt', allocations);
+
+      const isApproved = user.role === 'Administrador';
+
+      const newPayment = await tx.payment.create({
+        data: {
+          clientId,
+          date: new Date(),
+          isBaselineMovement: false,
+          amount: payAmount,
+          previousBalance: client.currentBalance,
+          resultingBalance: client.currentBalance,
+          paymentMethod: method,
+          cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
+          totalCharged,
+          registeredBy: user.name,
+          status: 'Activo',
+          targetType: 'dailyDebt',
+          allocations,
+          notes: data.notes ? data.notes.trim() : defaultNote,
+          approvedStatus: isApproved ? 'APPROVED' : 'PENDING_APPROVAL',
+          createdByUserId: user.id,
+          approvedByUserId: isApproved ? user.id : null,
+          approvedAt: isApproved ? new Date() : null,
+        },
+      });
+
+      if (isApproved) {
+        const synced = await this.balanceSyncService.syncClientBalances(
+          clientId,
+          tx,
+        );
+        await tx.payment.update({
+          where: { id: newPayment.id },
+          data: { resultingBalance: synced.currentBalance },
+        });
+
+        await this.auditService.logAudit(
+          user.id,
+          user.name,
+          user.role,
+          'ABONO_DEUDA_DIARIA',
+          `Abono a deuda corriente registrado y aprobado por S/ ${payAmount.toFixed(2)} para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+          newPayment.id,
+        );
+
+        const updatedClient = await tx.client.findUnique({
+          where: { id: clientId },
+        });
+        return {
+          payment: newPayment,
+          client: this.mapClient(updatedClient),
+          message: `Abono a deuda corriente registrado y aprobado con éxito. Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+        };
+      } else {
+        await this.auditService.logAudit(
+          user.id,
+          user.name,
+          user.role,
+          'REGISTRO_ABONO_PENDIENTE',
+          `Abono a deuda corriente de S/ ${payAmount.toFixed(2)} registrado por ${user.name} y pendiente de aprobación`,
+          newPayment.id,
+        );
+        return {
+          payment: newPayment,
+          client: this.mapClient(client),
+          message:
+            'Abono registrado con éxito. Pendiente de aprobación por un Administrador.',
+        };
+      }
+    });
+  }
+
+  async registerLoanPayment(loanId: string, data: any, user: any) {
+    return this.prisma.$transaction(async (tx) => {
+      const loan = await tx.loan.findFirst({
+        where: { OR: [{ id: loanId }, { code: loanId }] },
+        include: {
+          installments: {
+            where: { status: { in: ['Pendiente', 'Parcial', 'Vencida'] } },
+            orderBy: [{ dueDate: 'asc' }, { installmentNumber: 'asc' }],
           },
-          message: `Abono registrado con éxito. Pendiente de aprobación por un Administrador.`,
+        },
+      });
+
+      if (!loan) {
+        throw new NotFoundException('Crédito bancario no encontrado');
+      }
+
+      if (loan.status === 'Pagado') {
+        throw new BadRequestException(
+          'El crédito ya se encuentra totalmente pagado',
+        );
+      }
+      if (loan.status === 'Anulado') {
+        throw new BadRequestException('El crédito se encuentra anulado');
+      }
+
+      const client = await tx.client.findUnique({
+        where: { id: loan.clientId },
+      });
+      if (!client) {
+        throw new NotFoundException('Cliente no encontrado');
+      }
+
+      let payAmount = parseFloat(data.amount);
+      if (data.isFullPayoff) {
+        payAmount = loan.pendingAmount;
+      }
+
+      if (isNaN(payAmount) || payAmount <= 0) {
+        throw new BadRequestException(
+          'El importe del abono al crédito debe ser mayor a S/ 0.00',
+        );
+      }
+
+      if (payAmount > loan.pendingAmount + 0.001) {
+        throw new BadRequestException(
+          `No se permite sobrepago en créditos bancarios. El abono solicitado (S/ ${payAmount.toFixed(2)}) supera la deuda pendiente del crédito (S/ ${loan.pendingAmount.toFixed(2)})`,
+        );
+      }
+
+      const method = data.paymentMethod || 'Efectivo';
+      const cardSurcharge =
+        method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+      const totalCharged = payAmount + cardSurcharge;
+
+      let defaultNote = data.isFullPayoff
+        ? `Liquidación de crédito ${loan.code}`
+        : `Abono a cuotas de crédito ${loan.code}`;
+      if (method === 'Tarjeta') {
+        defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
+      }
+
+      const allocations: any[] = [];
+      let rem = payAmount;
+
+      for (const inst of loan.installments) {
+        if (rem <= 0) break;
+        const unpaid = Math.round((inst.amount - inst.paidAmount) * 100) / 100;
+        const toPay = Math.min(unpaid, rem);
+        if (toPay > 0) {
+          allocations.push({
+            targetType: 'bankLoan',
+            loanId: loan.id,
+            installmentNumber: inst.installmentNumber,
+            amount: toPay,
+          });
+          rem = Math.round((rem - toPay) * 100) / 100;
+        }
+      }
+
+      validatePaymentAllocations(
+        payAmount,
+        'bankLoan',
+        allocations,
+        loan.id,
+        [loan.id],
+      );
+
+      const isApproved = user.role === 'Administrador';
+
+      const newPayment = await tx.payment.create({
+        data: {
+          clientId: client.id,
+          loanId: loan.id,
+          date: new Date(),
+          isBaselineMovement: false,
+          amount: payAmount,
+          previousBalance: client.currentBalance,
+          resultingBalance: client.currentBalance,
+          paymentMethod: method,
+          cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
+          totalCharged,
+          registeredBy: user.name,
+          status: 'Activo',
+          targetType: 'bankLoan',
+          allocations,
+          notes: data.notes ? data.notes.trim() : defaultNote,
+          approvedStatus: isApproved ? 'APPROVED' : 'PENDING_APPROVAL',
+          createdByUserId: user.id,
+          approvedByUserId: isApproved ? user.id : null,
+          approvedAt: isApproved ? new Date() : null,
+        },
+      });
+
+      if (isApproved) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        for (const alloc of allocations) {
+          const inst = loan.installments.find(
+            (i) => i.installmentNumber === alloc.installmentNumber,
+          );
+          if (inst) {
+            const newPaid =
+              Math.round((inst.paidAmount + alloc.amount) * 100) / 100;
+            let instStatus: 'Pagada' | 'Parcial' | 'Pendiente' | 'Vencida' =
+              'Parcial';
+            if (newPaid >= inst.amount - 0.001) {
+              instStatus = 'Pagada';
+            } else if (inst.dueDate < todayStr) {
+              instStatus = 'Vencida';
+            }
+            await tx.installment.update({
+              where: { id: inst.id },
+              data: {
+                paidAmount: newPaid,
+                status: instStatus,
+                paidDate: instStatus === 'Pagada' ? new Date() : null,
+              },
+            });
+          }
+        }
+
+        const loanInstallments = await tx.installment.findMany({
+          where: { loanId: loan.id },
+        });
+        const totalPaid = loanInstallments.reduce(
+          (sum, i) => sum + i.paidAmount,
+          0,
+        );
+        const pending = Math.round((loan.totalAmount - totalPaid) * 100) / 100;
+        const paidCount = loanInstallments.filter(
+          (i) => i.status === 'Pagada',
+        ).length;
+        let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' = 'Activo';
+        if (pending <= 0.01) {
+          newStatus = 'Pagado';
+        } else {
+          const hasOverdue = loanInstallments.some(
+            (i) => i.dueDate < todayStr && i.status !== 'Pagada',
+          );
+          if (hasOverdue) newStatus = 'Vencido';
+        }
+
+        await tx.loan.update({
+          where: { id: loan.id },
+          data: {
+            paidAmount: totalPaid,
+            pendingAmount: pending,
+            paidInstallmentsCount: paidCount,
+            status: newStatus,
+          },
+        });
+
+        const synced = await this.balanceSyncService.syncClientBalances(
+          client.id,
+          tx,
+        );
+        await tx.payment.update({
+          where: { id: newPayment.id },
+          data: { resultingBalance: synced.currentBalance },
+        });
+
+        await this.auditService.logAudit(
+          user.id,
+          user.name,
+          user.role,
+          'ABONO_CREDITO_BANCARIO',
+          `Abono a crédito ${loan.code} registrado y aprobado por S/ ${payAmount.toFixed(2)} para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+          newPayment.id,
+        );
+
+        const updatedClient = await tx.client.findUnique({
+          where: { id: client.id },
+        });
+        return {
+          payment: newPayment,
+          client: this.mapClient(updatedClient),
+          message: `Abono al crédito registrado y aprobado con éxito. Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`,
+        };
+      } else {
+        await this.auditService.logAudit(
+          user.id,
+          user.name,
+          user.role,
+          'REGISTRO_ABONO_PENDIENTE',
+          `Abono a crédito ${loan.code} de S/ ${payAmount.toFixed(2)} registrado por ${user.name} y pendiente de aprobación`,
+          newPayment.id,
+        );
+        return {
+          payment: newPayment,
+          client: this.mapClient(client),
+          message:
+            'Abono registrado con éxito. Pendiente de aprobación por un Administrador.',
         };
       }
     });
@@ -352,7 +923,11 @@ export class TransactionsService {
 
   async approvePayment(paymentId: string, adminUser: any) {
     return this.prisma.$transaction(async (tx) => {
-      const applied = await this.applyPaymentTransaction(tx, paymentId, adminUser);
+      const applied = await this.applyPaymentTransaction(
+        tx,
+        paymentId,
+        adminUser,
+      );
       return {
         message: 'Abono aprobado con éxito y aplicado al saldo del cliente',
         payment: applied.payment,
@@ -374,7 +949,9 @@ export class TransactionsService {
           approvedStatus: 'REJECTED',
           rejectedAt: new Date(),
           approvedByUserId: adminUser.id,
-          rejectionReason: reason ? reason.trim() : 'Rechazado por el Administrador',
+          rejectionReason: reason
+            ? reason.trim()
+            : 'Rechazado por el Administrador',
         },
       });
 
@@ -384,7 +961,7 @@ export class TransactionsService {
         adminUser.role,
         'RECHAZAR_ABONO',
         `Abono de S/ ${payment.amount.toFixed(2)} para cliente ID ${payment.clientId} rechazado por Administrador. Motivo: ${reason}`,
-        payment.id
+        payment.id,
       );
 
       return {
@@ -409,9 +986,86 @@ export class TransactionsService {
     });
   }
 
+  async annulPurchase(id: string, reason: string, user: any) {
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException(
+        'Debe especificar el motivo de la anulación',
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const purchase = await tx.creditPurchase.findUnique({ where: { id } });
+      if (!purchase) {
+        throw new NotFoundException('Compra no encontrada');
+      }
+
+      if (purchase.status === 'Anulado') {
+        throw new BadRequestException('Esta compra ya se encuentra anulada');
+      }
+
+      const client = await tx.client.findUnique({
+        where: { id: purchase.clientId },
+      });
+      if (!client) {
+        throw new NotFoundException('Cliente asociado no encontrado');
+      }
+
+      if (purchase.isBaselineMovement === true) {
+        await tx.balanceAdjustment.create({
+          data: {
+            clientId: purchase.clientId,
+            type: 'DAILY_DEBT_REVERSAL',
+            sourceType: 'CREDIT_PURCHASE',
+            sourceId: purchase.id,
+            amount: purchase.amount,
+            reason: reason.trim(),
+            createdBy: user.name,
+            status: 'ACTIVO',
+          },
+        });
+      }
+
+      const updatedPurchase = await tx.creditPurchase.update({
+        where: { id },
+        data: {
+          status: 'Anulado',
+          annulledAt: new Date(),
+          annulledBy: user.name,
+          annulmentReason: reason.trim(),
+        },
+      });
+
+      const synced = await this.balanceSyncService.syncClientBalances(
+        purchase.clientId,
+        tx,
+      );
+
+      await this.auditService.logAudit(
+        user.id,
+        user.name,
+        user.role,
+        'ANULACION_COMPRA',
+        `Compra ${purchase.id} de S/ ${purchase.amount.toFixed(2)} anulada para ${client.name}. Motivo: ${reason.trim()}. Saldo resultante: S/ ${synced.currentBalance.toFixed(2)}`,
+        purchase.id,
+      );
+
+      const updatedClient = await tx.client.findUnique({
+        where: { id: purchase.clientId },
+      });
+
+      return {
+        message: 'Compra anulada con éxito',
+        purchase: updatedPurchase,
+        client: this.mapClient(updatedClient),
+      };
+    });
+  }
+
   async annulPayment(id: string, reason: string, user: any) {
     if (!reason || !reason.trim()) {
-      throw new BadRequestException('Debe especificar el motivo de la anulación');
+      throw new BadRequestException(
+        'Debe especificar el motivo de la anulación',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -424,96 +1078,118 @@ export class TransactionsService {
         throw new BadRequestException('Este abono ya se encuentra anulado');
       }
 
-      const client = await tx.client.findUnique({ where: { id: payment.clientId } });
+      const client = await tx.client.findUnique({
+        where: { id: payment.clientId },
+      });
       if (!client) {
         throw new NotFoundException('Cliente asociado no encontrado');
       }
 
-      // Revert the payment distribution sequentially from the most recently paid installments (LIFO)
-      const activeLoans = await tx.loan.findMany({
-        where: { clientId: payment.clientId, status: { in: ['Activo', 'Vencido', 'Pagado'] } },
-        include: {
-          installments: {
-            where: { paidAmount: { gt: 0 } },
-            orderBy: [{ dueDate: 'desc' }, { installmentNumber: 'desc' }],
-          },
-        },
-      });
-
-      let remainingRevert = payment.amount;
-
-      // Sort installments from all loans descending (newest paid first)
-      const allPaidInstallments = activeLoans
-        .flatMap((loan) =>
-          loan.installments.map((inst) => ({
-            ...inst,
-            loan,
-          }))
-        )
-        .sort((a, b) => {
-          if (a.dueDate !== b.dueDate) {
-            return b.dueDate.localeCompare(a.dueDate);
-          }
-          return b.installmentNumber - a.installmentNumber;
-        });
-
       const todayStr = new Date().toISOString().split('T')[0];
 
-      for (const inst of allPaidInstallments) {
-        if (remainingRevert <= 0) break;
-
-        const toRevert = Math.min(inst.paidAmount, remainingRevert);
-        const newPaidAmount = Math.round((inst.paidAmount - toRevert) * 100) / 100;
-        remainingRevert = Math.round((remainingRevert - toRevert) * 100) / 100;
-
-        let instStatus: 'Pendiente' | 'Vencida' | 'Parcial' = 'Pendiente';
-        if (newPaidAmount > 0) {
-          instStatus = 'Parcial';
-        } else if (inst.dueDate < todayStr) {
-          instStatus = 'Vencida';
-        }
-
-        await tx.installment.update({
-          where: { id: inst.id },
-          data: {
-            paidAmount: newPaidAmount,
-            status: instStatus,
-            paidDate: null,
-          },
-        });
-      }
-
-      // Recalculate all affected loans
-      for (const loan of activeLoans) {
-        const loanInstallments = await tx.installment.findMany({
-          where: { loanId: loan.id },
+      if (payment.isBaselineMovement === true) {
+        const clientLoansCount = await tx.loan.count({
+          where: { clientId: payment.clientId },
         });
 
-        const totalPaid = loanInstallments.reduce((sum, inst) => sum + inst.paidAmount, 0);
-        const pending = Math.round((loan.totalAmount - totalPaid) * 100) / 100;
-        const paidCount = loanInstallments.filter((inst) => inst.status === 'Pagada').length;
-
-        let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' = 'Activo';
-        if (pending <= 0.01) {
-          newStatus = 'Pagado';
+        if (clientLoansCount === 0) {
+          await tx.balanceAdjustment.create({
+            data: {
+              clientId: payment.clientId,
+              type: 'DAILY_PAYMENT_REVERSAL',
+              sourceType: 'PAYMENT',
+              sourceId: payment.id,
+              amount: payment.amount,
+              reason: reason.trim(),
+              createdBy: user.name,
+              status: 'ACTIVO',
+            },
+          });
         } else {
-          const hasOverdue = loanInstallments.some(
-            (inst) => inst.dueDate < todayStr && inst.status !== 'Pagada'
+          throw new HttpException(
+            {
+              code: 'LEGACY_PAYMENT_ALLOCATION_AMBIGUOUS',
+              message:
+                'El abono pertenece al período previo al nuevo modelo de saldos y no se puede determinar automáticamente la imputación entre cartera diaria y bancaria. Utilice el endpoint de resolución administrativa.',
+            },
+            422,
           );
-          if (hasOverdue) {
-            newStatus = 'Vencido';
+        }
+      } else {
+        const bankAllocations = (
+          (payment.allocations as any[]) || []
+        ).filter((a) => (a.targetType || a.type) === 'bankLoan');
+
+        if (bankAllocations.length > 0) {
+          for (const alloc of bankAllocations) {
+            const inst = await tx.installment.findFirst({
+              where: {
+                loanId: alloc.loanId,
+                installmentNumber: alloc.installmentNumber,
+              },
+            });
+            if (inst) {
+              const newPaid = Math.max(
+                0,
+                Math.round((inst.paidAmount - alloc.amount) * 100) / 100,
+              );
+              let instStatus: 'Pendiente' | 'Vencida' | 'Parcial' = 'Pendiente';
+              if (newPaid > 0) {
+                instStatus = 'Parcial';
+              } else if (inst.dueDate < todayStr) {
+                instStatus = 'Vencida';
+              }
+              await tx.installment.update({
+                where: { id: inst.id },
+                data: {
+                  paidAmount: newPaid,
+                  status: instStatus,
+                  paidDate: null,
+                },
+              });
+            }
+          }
+
+          const affectedLoanIds = [
+            ...new Set(bankAllocations.map((a) => a.loanId)),
+          ];
+          for (const loanId of affectedLoanIds) {
+            const loanInstallments = await tx.installment.findMany({
+              where: { loanId },
+            });
+            const totalPaid = loanInstallments.reduce(
+              (s, i) => s + i.paidAmount,
+              0,
+            );
+            const loan = await tx.loan.findUnique({ where: { id: loanId } });
+            if (loan) {
+              const pendingAmount =
+                Math.round((loan.totalAmount - totalPaid) * 100) / 100;
+              const paidCount = loanInstallments.filter(
+                (i) => i.status === 'Pagada',
+              ).length;
+              let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' =
+                'Activo';
+              if (pendingAmount <= 0.01) {
+                newStatus = 'Pagado';
+              } else {
+                const hasOverdue = loanInstallments.some(
+                  (i) => i.dueDate < todayStr && i.status !== 'Pagada',
+                );
+                if (hasOverdue) newStatus = 'Vencido';
+              }
+              await tx.loan.update({
+                where: { id: loanId },
+                data: {
+                  paidAmount: totalPaid,
+                  pendingAmount,
+                  paidInstallmentsCount: paidCount,
+                  status: newStatus,
+                },
+              });
+            }
           }
         }
-
-        await tx.loan.update({
-          where: { id: loan.id },
-          data: {
-            paidAmount: totalPaid,
-            pendingAmount: pending,
-            paidInstallmentsCount: paidCount,
-            status: newStatus,
-          },
-        });
       }
 
       const updatedPayment = await tx.payment.update({
@@ -526,27 +1202,28 @@ export class TransactionsService {
         },
       });
 
-      const updatedClient = await tx.client.update({
-        where: { id: payment.clientId },
-        data: { currentBalance: { increment: payment.amount } },
-      });
+      const synced = await this.balanceSyncService.syncClientBalances(
+        payment.clientId,
+        tx,
+      );
 
       await this.auditService.logAudit(
         user.id,
         user.name,
         user.role,
         'ANULACION_ABONO',
-        `Abono ${payment.id} de S/ ${payment.amount.toFixed(2)} anulado para ${client.name}. Motivo: ${reason.trim()}. Saldo restaurado a: S/ ${updatedClient.currentBalance.toFixed(2)}`,
-        payment.id
+        `Abono ${payment.id} de S/ ${payment.amount.toFixed(2)} anulado para ${client.name}. Motivo: ${reason.trim()}. Saldo resultante: S/ ${synced.currentBalance.toFixed(2)}`,
+        payment.id,
       );
+
+      const updatedClient = await tx.client.findUnique({
+        where: { id: payment.clientId },
+      });
 
       return {
         message: 'Abono anulado con éxito',
         payment: updatedPayment,
-        client: {
-          ...updatedClient,
-          paymentPeriod: updatedClient.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : updatedClient.paymentPeriod,
-        },
+        client: this.mapClient(updatedClient),
       };
     });
   }
@@ -566,36 +1243,45 @@ export class TransactionsService {
       const rate = parseFloat(data.interestRate) || 0;
       const count = parseInt(data.installmentsCount, 10) || 1;
       const freq = data.frequency || 'Mensual';
-      const firstDate = data.firstDueDate || new Date().toISOString().split('T')[0];
+      const firstDate =
+        data.firstDueDate || new Date().toISOString().split('T')[0];
 
       if (cap <= 0) {
-        throw new BadRequestException('El capital del crédito debe ser mayor a S/ 0.00');
+        throw new BadRequestException(
+          'El capital del crédito debe ser mayor a S/ 0.00',
+        );
       }
       if (rate < 0) {
-        throw new BadRequestException('El porcentaje de interés no puede ser negativo');
+        throw new BadRequestException(
+          'El porcentaje de interés no puede ser negativo',
+        );
       }
       if (count <= 0) {
         throw new BadRequestException('El número de cuotas debe ser mayor a 0');
       }
 
       // Calculations (Simple Interest)
-      const calculatedInterest = Math.round(((cap * rate) / 100 + Number.EPSILON) * 100) / 100;
-      const calculatedTotal = Math.round((cap + calculatedInterest + Number.EPSILON) * 100) / 100;
-      const calculatedInstallment = Math.round((calculatedTotal / count + Number.EPSILON) * 100) / 100;
+      const calculatedInterest =
+        Math.round(((cap * rate) / 100 + Number.EPSILON) * 100) / 100;
+      const calculatedTotal =
+        Math.round((cap + calculatedInterest + Number.EPSILON) * 100) / 100;
+      const calculatedInstallment =
+        Math.round((calculatedTotal / count + Number.EPSILON) * 100) / 100;
 
       // Credit limit validation (currentBalance + calculatedTotal <= creditLimit)
       if (client.creditLimit > 0) {
         const projectedBalance = client.currentBalance + calculatedTotal;
         if (projectedBalance > client.creditLimit) {
           throw new BadRequestException(
-            `El crédito solicitado supera el límite de crédito del cliente. Límite: S/ ${client.creditLimit.toFixed(2)}, Saldo actual: S/ ${client.currentBalance.toFixed(2)}, Total del nuevo crédito: S/ ${calculatedTotal.toFixed(2)}, Exceso: S/ ${(projectedBalance - client.creditLimit).toFixed(2)}`
+            `El crédito solicitado supera el límite de crédito del cliente. Límite: S/ ${client.creditLimit.toFixed(2)}, Saldo actual: S/ ${client.currentBalance.toFixed(2)}, Total del nuevo crédito: S/ ${calculatedTotal.toFixed(2)}, Exceso: S/ ${(projectedBalance - client.creditLimit).toFixed(2)}`,
           );
         }
       }
 
       // Installments scheduling
       const baseCap = Math.round((cap / count + Number.EPSILON) * 100) / 100;
-      const baseInt = Math.round((calculatedInterest / count + Number.EPSILON) * 100) / 100;
+      const baseInt =
+        Math.round((calculatedInterest / count + Number.EPSILON) * 100) / 100;
       const todayStr = new Date().toISOString().split('T')[0];
 
       const installmentsData: any[] = [];
@@ -603,7 +1289,11 @@ export class TransactionsService {
       let accInt = 0;
       let accTot = 0;
 
-      const getDueDate = (firstDateStr: string, frequency: string, index: number) => {
+      const getDueDate = (
+        firstDateStr: string,
+        frequency: string,
+        index: number,
+      ) => {
         const [y, m, d] = firstDateStr.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
         if (frequency === 'Semanal') {
@@ -619,8 +1309,12 @@ export class TransactionsService {
       for (let i = 1; i <= count; i++) {
         const isLast = i === count;
         const c = isLast ? Math.round((cap - accCap) * 100) / 100 : baseCap;
-        const int = isLast ? Math.round((calculatedInterest - accInt) * 100) / 100 : baseInt;
-        const tot = isLast ? Math.round((calculatedTotal - accTot) * 100) / 100 : Math.round((c + int) * 100) / 100;
+        const int = isLast
+          ? Math.round((calculatedInterest - accInt) * 100) / 100
+          : baseInt;
+        const tot = isLast
+          ? Math.round((calculatedTotal - accTot) * 100) / 100
+          : Math.round((c + int) * 100) / 100;
 
         accCap += c;
         accInt += int;
@@ -639,7 +1333,9 @@ export class TransactionsService {
         });
       }
 
-      const loanCode = data.ticketNumber ? data.ticketNumber.trim() : `CR-${Math.floor(100000 + Math.random() * 900000)}`;
+      const loanCode = data.ticketNumber
+        ? data.ticketNumber.trim()
+        : `CR-${Math.floor(100000 + Math.random() * 900000)}`;
       const loanDate = data.date ? new Date(data.date) : new Date();
 
       const newLoan = await tx.loan.create({
@@ -647,7 +1343,9 @@ export class TransactionsService {
           code: loanCode,
           clientId,
           date: loanDate,
-          product: data.product ? data.product.trim() : `Crédito con intereses ${rate}% (${count} cuotas)`,
+          product: data.product
+            ? data.product.trim()
+            : `Crédito con intereses ${rate}% (${count} cuotas)`,
           capital: cap,
           interestRate: rate,
           interestAmount: calculatedInterest,
@@ -687,10 +1385,9 @@ export class TransactionsService {
         },
       });
 
-      // Update client balance
-      const updatedClient = await tx.client.update({
+      await this.balanceSyncService.syncClientBalances(clientId, tx);
+      const updatedClient = await tx.client.findUnique({
         where: { id: clientId },
-        data: { currentBalance: { increment: calculatedTotal } },
       });
 
       await this.auditService.logAudit(
@@ -698,8 +1395,8 @@ export class TransactionsService {
         user.name,
         user.role,
         'REGISTRO_CREDITO_INTERES',
-        `Crédito con intereses otorgado (${loanCode}) por S/ ${calculatedTotal.toFixed(2)} para ${client.name}. Saldo resultante: S/ ${updatedClient.currentBalance.toFixed(2)}`,
-        newLoan.id
+        `Crédito con intereses otorgado (${loanCode}) por S/ ${calculatedTotal.toFixed(2)} para ${client.name}. Saldo resultante: S/ ${updatedClient?.currentBalance != null ? updatedClient.currentBalance.toFixed(2) : '0.00'}`,
+        newLoan.id,
       );
 
       return {
@@ -712,10 +1409,7 @@ export class TransactionsService {
           })),
         },
         purchase: purchaseMovement,
-        client: {
-          ...updatedClient,
-          paymentPeriod: updatedClient.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : updatedClient.paymentPeriod,
-        },
+        client: this.mapClient(updatedClient),
         message: 'Crédito con intereses registrado con éxito',
       };
     });
@@ -743,7 +1437,9 @@ export class TransactionsService {
 
   async annulLoan(loanId: string, reason: string, user: any) {
     if (!reason || !reason.trim()) {
-      throw new BadRequestException('Debe especificar el motivo de la anulación del crédito');
+      throw new BadRequestException(
+        'Debe especificar el motivo de la anulación del crédito',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -760,19 +1456,47 @@ export class TransactionsService {
         throw new BadRequestException('Este crédito ya se encuentra anulado');
       }
 
-      const client = await tx.client.findUnique({ where: { id: loan.clientId } });
+      const client = await tx.client.findUnique({
+        where: { id: loan.clientId },
+        include: {
+          openingSnapshots: {
+            where: { migrationVersion: 'BALANCE_MODEL_V1', status: 'ACTIVO' },
+            take: 1,
+          },
+        },
+      });
       if (!client) {
         throw new NotFoundException('Cliente asociado no encontrado');
       }
 
-      // We do not allow destructive annulment if it has payments
       if (loan.paidAmount > 0) {
         throw new BadRequestException(
-          `No se puede anular el crédito ${loan.code} porque ya posee pagos registrados (S/ ${loan.paidAmount.toFixed(2)}).`
+          `No se puede anular el crédito ${loan.code} porque ya posee pagos registrados (S/ ${loan.paidAmount.toFixed(2)}).`,
         );
       }
 
-      // Mark loan as annulled
+      const snapshot =
+        client.openingSnapshots && client.openingSnapshots.length > 0
+          ? client.openingSnapshots[0]
+          : null;
+
+      // If loan existed before snapshot, create BalanceAdjustment
+      if (snapshot && loan.createdAt <= snapshot.cutOffDate) {
+        await tx.balanceAdjustment.create({
+          data: {
+            clientId: loan.clientId,
+            type: 'BANK_LOAN_REVERSAL',
+            sourceType: 'LOAN',
+            sourceId: loan.id,
+            amount: loan.totalAmount,
+            loanId: loan.id,
+            reason: reason.trim(),
+            createdBy: user.name,
+            status: 'ACTIVO',
+          },
+        });
+      }
+
       const updatedLoan = await tx.loan.update({
         where: { id: loan.id },
         data: {
@@ -783,19 +1507,11 @@ export class TransactionsService {
         },
       });
 
-      // Mark installments as Anulada
       await tx.installment.updateMany({
         where: { loanId: loan.id },
         data: { status: 'Anulada' },
       });
 
-      // Revert the total amount from client balance
-      const updatedClient = await tx.client.update({
-        where: { id: loan.clientId },
-        data: { currentBalance: { decrement: loan.totalAmount } },
-      });
-
-      // Annul related purchase movement
       await tx.creditPurchase.updateMany({
         where: { loanId: loan.id },
         data: {
@@ -806,28 +1522,234 @@ export class TransactionsService {
         },
       });
 
+      const synced = await this.balanceSyncService.syncClientBalances(
+        loan.clientId,
+        tx,
+      );
+
       await this.auditService.logAudit(
         user.id,
         user.name,
         user.role,
         'ANULACION_CREDITO',
-        `Crédito ${loan.code} anulado para ${client.name}. Motivo: ${reason.trim()}. Saldo restaurado a: S/ ${updatedClient.currentBalance.toFixed(2)}`,
-        loan.id
+        `Crédito ${loan.code} anulado para ${client.name}. Motivo: ${reason.trim()}. Saldo resultante: S/ ${synced.currentBalance.toFixed(2)}`,
+        loan.id,
       );
+
+      const updatedClient = await tx.client.findUnique({
+        where: { id: loan.clientId },
+      });
 
       return {
         message: 'Crédito anulado con éxito',
         loan: updatedLoan,
-        client: {
-          ...updatedClient,
-          paymentPeriod: updatedClient.paymentPeriod === 'DiaFijo' ? 'Día Fijo' : updatedClient.paymentPeriod,
+        client: this.mapClient(updatedClient),
+      };
+    });
+  }
+
+  async resolveAmbiguousReversal(paymentId: string, data: any, user: any) {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({ where: { id: paymentId } });
+      if (!payment) {
+        throw new NotFoundException('Abono no encontrado');
+      }
+
+      if (payment.status === 'Anulado') {
+        throw new BadRequestException('Este abono ya se encuentra anulado');
+      }
+
+      const existingAdj = await tx.balanceAdjustment.findFirst({
+        where: { sourceType: 'PAYMENT', sourceId: payment.id },
+      });
+      if (existingAdj) {
+        throw new BadRequestException(
+          'Este abono ya ha sido resuelto administrativamente',
+        );
+      }
+
+      const client = await tx.client.findUnique({
+        where: { id: payment.clientId },
+      });
+      if (!client) {
+        throw new NotFoundException('Cliente no encontrado');
+      }
+
+      const dailyDebtDec = new Prisma.Decimal(
+        (data.dailyDebtAmount || 0).toString(),
+      );
+      const bankAllocs: any[] = Array.isArray(data.bankAllocations)
+        ? data.bankAllocations
+        : [];
+      let sumBank = new Prisma.Decimal(0);
+
+      for (const b of bankAllocs) {
+        if (!b.loanId) {
+          throw new BadRequestException(
+            'Cada allocation bancaria debe especificar loanId',
+          );
+        }
+        const bAmount = new Prisma.Decimal((b.amount || 0).toString());
+        if (bAmount.lessThanOrEqualTo(0)) {
+          throw new BadRequestException(
+            'El monto de cada allocation bancaria debe ser mayor a 0',
+          );
+        }
+        sumBank = sumBank.plus(bAmount);
+
+        const loan = await tx.loan.findFirst({
+          where: { id: b.loanId, clientId: payment.clientId },
+        });
+        if (!loan) {
+          throw new BadRequestException(
+            `El crédito ${b.loanId} no pertenece al cliente del abono`,
+          );
+        }
+      }
+
+      const totalResolved = dailyDebtDec.plus(sumBank);
+      const paymentAmount = new Prisma.Decimal(payment.amount.toString());
+      if (!totalResolved.equals(paymentAmount)) {
+        throw new BadRequestException(
+          `La suma de dailyDebtAmount y bankAllocations (${totalResolved.toFixed(2)}) debe coincidir exactamente con el monto del abono (${paymentAmount.toFixed(2)})`,
+        );
+      }
+
+      if (dailyDebtDec.greaterThan(0)) {
+        await tx.balanceAdjustment.create({
+          data: {
+            clientId: payment.clientId,
+            type: 'DAILY_PAYMENT_REVERSAL',
+            sourceType: 'PAYMENT',
+            sourceId: payment.id,
+            amount: dailyDebtDec.toNumber(),
+            reason:
+              data.reason ||
+              'Resolución administrativa de reversión de deuda corriente',
+            createdBy: user.name,
+            status: 'ACTIVO',
+          },
+        });
+      }
+
+      const todayStr = new Date().toISOString().split('T')[0];
+      for (const b of bankAllocs) {
+        await tx.balanceAdjustment.create({
+          data: {
+            clientId: payment.clientId,
+            type: 'BANK_PAYMENT_REVERSAL',
+            sourceType: 'PAYMENT',
+            sourceId: payment.id,
+            amount: Number(b.amount),
+            loanId: b.loanId,
+            reason:
+              data.reason ||
+              'Resolución administrativa de reversión bancaria',
+            createdBy: user.name,
+            status: 'ACTIVO',
+          },
+        });
+
+        let remRevert = Number(b.amount);
+        const paidInst = await tx.installment.findMany({
+          where: { loanId: b.loanId, paidAmount: { gt: 0 } },
+          orderBy: [{ dueDate: 'desc' }, { installmentNumber: 'desc' }],
+        });
+
+        for (const inst of paidInst) {
+          if (remRevert <= 0) break;
+          const toRevert = Math.min(inst.paidAmount, remRevert);
+          const newPaid = Math.round((inst.paidAmount - toRevert) * 100) / 100;
+          remRevert = Math.round((remRevert - toRevert) * 100) / 100;
+          let instStatus: 'Pendiente' | 'Vencida' | 'Parcial' = 'Pendiente';
+          if (newPaid > 0) {
+            instStatus = 'Parcial';
+          } else if (inst.dueDate < todayStr) {
+            instStatus = 'Vencida';
+          }
+          await tx.installment.update({
+            where: { id: inst.id },
+            data: {
+              paidAmount: newPaid,
+              status: instStatus,
+              paidDate: null,
+            },
+          });
+        }
+
+        const allInst = await tx.installment.findMany({
+          where: { loanId: b.loanId },
+        });
+        const totalPaid = allInst.reduce((s, i) => s + i.paidAmount, 0);
+        const loan = await tx.loan.findUnique({ where: { id: b.loanId } });
+        if (loan) {
+          const pending = Math.round((loan.totalAmount - totalPaid) * 100) / 100;
+          const paidCount = allInst.filter((i) => i.status === 'Pagada').length;
+          let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' = 'Activo';
+          if (pending <= 0.01) {
+            newStatus = 'Pagado';
+          } else {
+            const hasOverdue = allInst.some(
+              (i) => i.dueDate < todayStr && i.status !== 'Pagada',
+            );
+            if (hasOverdue) newStatus = 'Vencido';
+          }
+          await tx.loan.update({
+            where: { id: b.loanId },
+            data: {
+              paidAmount: totalPaid,
+              pendingAmount: pending,
+              paidInstallmentsCount: paidCount,
+              status: newStatus,
+            },
+          });
+        }
+      }
+
+      // Mark payment as Anulado WITHOUT modifying targetType or allocations!
+      const updatedPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'Anulado',
+          annulledAt: new Date(),
+          annulledBy: user.name,
+          annulmentReason:
+            data.reason || 'Resolución administrativa de abono ambiguo',
         },
+      });
+
+      const synced = await this.balanceSyncService.syncClientBalances(
+        payment.clientId,
+        tx,
+      );
+
+      await this.auditService.logAudit(
+        user.id,
+        user.name,
+        user.role,
+        'RESOLUCION_ABONO_AMBIGUO',
+        `Abono ambiguo ${payment.id} de S/ ${payment.amount.toFixed(2)} resuelto y anulado para ${client.name}. Saldo resultante: S/ ${synced.currentBalance.toFixed(2)}`,
+        payment.id,
+      );
+
+      const updatedClient = await tx.client.findUnique({
+        where: { id: payment.clientId },
+      });
+
+      return {
+        message: 'Abono ambiguo resuelto y anulado con éxito',
+        payment: updatedPayment,
+        client: this.mapClient(updatedClient),
       };
     });
   }
 
   async getPaymentsHistory(params: any) {
-    const range = this.getDateFilterRange(params.dateFilter, params.startDate, params.endDate);
+    const range = this.getDateFilterRange(
+      params.dateFilter,
+      params.startDate,
+      params.endDate,
+    );
     const where: any = {};
 
     if (range) {
@@ -877,7 +1799,11 @@ export class TransactionsService {
   }
 
   async getPurchasesHistory(params: any) {
-    const range = this.getDateFilterRange(params.dateFilter, params.startDate, params.endDate);
+    const range = this.getDateFilterRange(
+      params.dateFilter,
+      params.startDate,
+      params.endDate,
+    );
     const where: any = {};
 
     if (range) {
@@ -915,7 +1841,9 @@ export class TransactionsService {
       client: undefined,
     }));
 
-    const activePurchases = mappedPurchases.filter((p) => p.status === 'Activo');
+    const activePurchases = mappedPurchases.filter(
+      (p) => p.status === 'Activo',
+    );
     const totalAmount = activePurchases.reduce((sum, p) => sum + p.amount, 0);
 
     return {

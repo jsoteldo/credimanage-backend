@@ -3,6 +3,7 @@ import { TransactionsService } from './transactions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BalanceSyncService } from './balance-sync.service';
 
 describe('TransactionsService - Créditos con Intereses', () => {
   let service: TransactionsService;
@@ -10,6 +11,16 @@ describe('TransactionsService - Créditos con Intereses', () => {
   let audit: AuditService;
 
   const mockUser = { id: 'usr-1', name: 'Admin Test', role: 'Administrador' };
+
+  const mockBalanceSyncService = {
+    syncClientBalances: jest.fn().mockResolvedValue({
+      dailyDebtBalance: 0,
+      bankDebtBalance: 1100,
+      currentBalance: 1100,
+      creditExposure: 1100,
+      availableCredit: 'Sin límite',
+    }),
+  };
 
   const mockPrisma = {
     client: {
@@ -35,6 +46,11 @@ describe('TransactionsService - Créditos con Intereses', () => {
       })),
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(() => ({
+        id: 'loan-1',
+        totalAmount: 1100,
+        paidAmount: 500,
+      })),
       update: jest.fn(({ where, data }) => ({
         id: where.id,
         ...data,
@@ -46,6 +62,14 @@ describe('TransactionsService - Créditos con Intereses', () => {
         ...data,
       })),
       findMany: jest.fn(),
+      findFirst: jest.fn(({ where }) => ({
+        id: where?.id || (where?.installmentNumber ? `inst-${where.installmentNumber}` : 'inst-1'),
+        loanId: where?.loanId || 'loan-1',
+        installmentNumber: where?.installmentNumber || 1,
+        amount: 220,
+        paidAmount: 0,
+        dueDate: '2026-09-18',
+      })),
       updateMany: jest.fn(),
     },
     creditPurchase: {
@@ -63,6 +87,11 @@ describe('TransactionsService - Créditos con Intereses', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
     },
+    balanceAdjustment: {
+      create: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+    },
     $transaction: jest.fn((cb) => cb(mockPrisma)),
   };
 
@@ -76,6 +105,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
         TransactionsService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: AuditService, useValue: mockAudit },
+        { provide: BalanceSyncService, useValue: mockBalanceSyncService },
       ],
     }).compile();
 
@@ -112,7 +142,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
           frequency: 'Mensual',
           firstDueDate: '2026-09-18',
         },
-        mockUser
+        mockUser,
       );
 
       expect(result.loan.capital).toBe(1000);
@@ -120,7 +150,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
       expect(result.loan.totalAmount).toBe(1100);
       expect(result.loan.installmentAmount).toBe(220);
       expect(result.loan.installments).toHaveLength(5);
-      
+
       // Cada cuota debe ser 220
       result.loan.installments.forEach((inst: any) => {
         expect(inst.amount).toBe(220);
@@ -154,7 +184,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
           frequency: 'Mensual',
           firstDueDate: '2026-09-18',
         },
-        mockUser
+        mockUser,
       );
 
       const insts = result.loan.installments;
@@ -192,7 +222,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
           frequency: 'Mensual',
           firstDueDate: '2026-09-18',
         },
-        mockUser
+        mockUser,
       );
 
       expect(result).toBeDefined();
@@ -219,8 +249,8 @@ describe('TransactionsService - Créditos con Intereses', () => {
             frequency: 'Mensual',
             firstDueDate: '2026-09-18',
           },
-          mockUser
-        )
+          mockUser,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });
@@ -240,15 +270,41 @@ describe('TransactionsService - Créditos con Intereses', () => {
           totalAmount: 1100,
           paidAmount: 0,
           installments: [
-            { id: 'inst-1', installmentNumber: 1, dueDate: '2026-09-18', amount: 220, paidAmount: 0, status: 'Pendiente' },
-            { id: 'inst-2', installmentNumber: 2, dueDate: '2026-10-18', amount: 220, paidAmount: 0, status: 'Pendiente' },
-            { id: 'inst-3', installmentNumber: 3, dueDate: '2026-11-18', amount: 220, paidAmount: 0, status: 'Pendiente' },
+            {
+              id: 'inst-1',
+              loanId: 'loan-1',
+              installmentNumber: 1,
+              dueDate: '2026-09-18',
+              amount: 220,
+              paidAmount: 0,
+              status: 'Pendiente',
+            },
+            {
+              id: 'inst-2',
+              loanId: 'loan-1',
+              installmentNumber: 2,
+              dueDate: '2026-10-18',
+              amount: 220,
+              paidAmount: 0,
+              status: 'Pendiente',
+            },
+            {
+              id: 'inst-3',
+              loanId: 'loan-1',
+              installmentNumber: 3,
+              dueDate: '2026-11-18',
+              amount: 220,
+              paidAmount: 0,
+              status: 'Pendiente',
+            },
           ],
         },
       ];
 
       mockPrisma.loan.findMany.mockResolvedValue(mockLoans);
-      mockPrisma.installment.findMany.mockResolvedValue(mockLoans[0].installments);
+      mockPrisma.installment.findMany.mockResolvedValue(
+        mockLoans[0].installments,
+      );
 
       // Caso: Abono de S/ 500.
       // Debe pagar completa la cuota 1 (220) e inst-1 status 'Pagada'.
@@ -260,7 +316,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
           amount: 500,
           paymentMethod: 'Efectivo',
         },
-        mockUser
+        mockUser,
       );
 
       expect(result).toBeDefined();
@@ -294,8 +350,8 @@ describe('TransactionsService - Créditos con Intereses', () => {
             amount: 500,
             paymentMethod: 'Efectivo',
           },
-          mockUser
-        )
+          mockUser,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });

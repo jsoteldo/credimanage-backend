@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.TransactionsModule = void 0;
 const common_1 = require("@nestjs/common");
 const transactions_service_1 = require("./transactions.service");
+const balance_sync_service_1 = require("./balance-sync.service");
 const transactions_controller_1 = require("./transactions.controller");
 const auth_module_1 = require("../auth/auth.module");
 let TransactionsModule = class TransactionsModule {
@@ -17,9 +18,9 @@ exports.TransactionsModule = TransactionsModule;
 exports.TransactionsModule = TransactionsModule = __decorate([
     (0, common_1.Module)({
         imports: [auth_module_1.AuthModule],
-        providers: [transactions_service_1.TransactionsService],
+        providers: [transactions_service_1.TransactionsService, balance_sync_service_1.BalanceSyncService],
         controllers: [transactions_controller_1.TransactionsController],
-        exports: [transactions_service_1.TransactionsService],
+        exports: [transactions_service_1.TransactionsService, balance_sync_service_1.BalanceSyncService],
     })
 ], TransactionsModule);
 //# sourceMappingURL=transactions.module.js.map

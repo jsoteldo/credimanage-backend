@@ -73,6 +73,12 @@ model Client {
   address        String          @default("")
   creditLimit    Float           @default(0)
   currentBalance Float           @default(0)
+  dailyDebtBalance    Decimal?                 @db.Decimal(12, 2)
+  bankDebtBalance     Decimal?                 @db.Decimal(12, 2)
+  balanceModelVersion String?
+  balanceOrigin       String?
+  openingSnapshots    BalanceOpeningSnapshot[]
+  adjustments         BalanceAdjustment[]
   paymentPeriod  PaymentPeriod   @default(Mensual)
   paymentDay     String          @default("")
   nextDueDate    String          @default("")
@@ -114,6 +120,7 @@ model Loan {
   updatedAt             DateTime          @updatedAt
   purchases             CreditPurchase[]
   payments              Payment[]
+  adjustments           BalanceAdjustment[]
 }
 
 model Installment {
@@ -133,23 +140,25 @@ model Installment {
 }
 
 model CreditPurchase {
-  id              String          @id @default(uuid())
-  clientId        String
-  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  date            DateTime        @default(now())
-  product         String
-  unitPrice       Float
-  quantity        Int             @default(1)
-  amount          Float
-  ticketNumber    String?
-  registeredBy    String
-  status          OperationStatus @default(Activo)
-  annulledAt      DateTime?
-  annulledBy      String?
-  annulmentReason String?
-  debtType        String          @default("simple") // "simple" or "credit"
-  loanId          String?
-  loan            Loan?           @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  id                 String          @id @default(uuid())
+  clientId           String
+  client             Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date               DateTime        @default(now())
+  createdAt          DateTime?       @default(now())
+  isBaselineMovement Boolean         @default(false)
+  product            String
+  unitPrice          Float
+  quantity           Int             @default(1)
+  amount             Float
+  ticketNumber       String?
+  registeredBy       String
+  status             OperationStatus @default(Activo)
+  annulledAt         DateTime?
+  annulledBy         String?
+  annulmentReason    String?
+  debtType           String          @default("simple") // "simple" or "credit"
+  loanId             String?
+  loan               Loan?           @relation(fields: [loanId], references: [id], onDelete: SetNull)
 }
 
 enum PaymentStatus {
@@ -159,30 +168,35 @@ enum PaymentStatus {
 }
 
 model Payment {
-  id               String          @id @default(uuid())
-  clientId         String
-  client           Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  date             DateTime        @default(now())
-  amount           Float
-  previousBalance  Float
-  resultingBalance Float
-  paymentMethod    PaymentMethod   @default(Efectivo)
-  cardSurcharge    Float?
-  totalCharged     Float
-  registeredBy     String
-  status           OperationStatus @default(Activo)
-  notes            String?
-  annulledAt       DateTime?
-  annulledBy       String?
-  annulmentReason  String?
-  loanId           String?
-  loan             Loan?           @relation(fields: [loanId], references: [id], onDelete: SetNull)
-  approvedStatus   PaymentStatus   @default(APPROVED)
-  createdByUserId  String?
-  approvedByUserId String?
-  approvedAt       DateTime?
-  rejectedAt       DateTime?
-  rejectionReason  String?
+  id                 String              @id @default(uuid())
+  clientId           String
+  client             Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date               DateTime            @default(now())
+  createdAt          DateTime?           @default(now())
+  isBaselineMovement Boolean             @default(false)
+  amount             Float
+  previousBalance    Float
+  resultingBalance   Float
+  paymentMethod      PaymentMethod       @default(Efectivo)
+  cardSurcharge      Float?
+  totalCharged       Float
+  registeredBy       String
+  status             OperationStatus     @default(Activo)
+  notes              String?
+  targetType         String?
+  allocations        Json?
+  annulledAt         DateTime?
+  annulledBy         String?
+  annulmentReason    String?
+  loanId             String?
+  loan               Loan?               @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  approvedStatus     PaymentStatus       @default(APPROVED)
+  createdByUserId    String?
+  approvedByUserId   String?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  rejectionReason    String?
+  adjustments        BalanceAdjustment[]
 }
 
 model AuditLog {
@@ -197,3 +211,50 @@ model AuditLog {
   ip        String?
 }
 
+model BalanceOpeningSnapshot {
+  id                         String   @id @default(uuid())
+  clientId                   String
+  client                     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  migrationVersion           String
+  cutOffDate                 DateTime
+  dailyDebtOpeningBalance    Decimal  @db.Decimal(12, 2)
+  bankDebtOpeningBalance     Decimal  @db.Decimal(12, 2)
+  currentOpeningBalance      Decimal  @db.Decimal(12, 2)
+  creditExposureOpening      Decimal  @db.Decimal(12, 2)
+  legacyUnknownPaymentCount  Int      @default(0)
+  legacyMixedPaymentCount    Int      @default(0)
+  status                     String   @default("ACTIVO")
+  reconciliationRef          String?
+  createdAt                  DateTime @default(now())
+
+  @@unique([clientId, migrationVersion])
+}
+
+enum BalanceAdjustmentType {
+  DAILY_DEBT_REVERSAL
+  DAILY_PAYMENT_REVERSAL
+  BANK_LOAN_REVERSAL
+  BANK_PAYMENT_REVERSAL
+  MIGRATION_ADJUSTMENT
+}
+
+model BalanceAdjustment {
+  id         String                @id @default(uuid())
+  clientId   String
+  client     Client                @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  type       BalanceAdjustmentType
+  amount     Decimal               @db.Decimal(12, 2)
+  sourceType String
+  sourceId   String
+  loanId     String?
+  loan       Loan?                 @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  paymentId  String?
+  payment    Payment?              @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  purchaseId String?
+  reason     String
+  createdAt  DateTime              @default(now())
+  createdBy  String
+  status     String                @default("ACTIVO")
+
+  @@unique([sourceType, sourceId, type], name: "source_adjustment_unique")
+}

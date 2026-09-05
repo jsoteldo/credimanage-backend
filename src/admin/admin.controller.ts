@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Patch,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -21,12 +31,20 @@ export class AdminController {
   }
 
   @Put('users/:id/role')
-  async updateUserPermissions(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async updateUserPermissions(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.adminService.updateUserPermissions(id, body, req.user);
   }
 
   @Patch('users/:id')
-  async updateUser(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async updateUser(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.adminService.updateUser(id, body, req.user);
   }
 

@@ -14,7 +14,9 @@ import { RolesGuard } from './roles.guard';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'credimanage_pos_jwt_secret_key_2026',
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'credimanage_pos_jwt_secret_key_2026',
         signOptions: { expiresIn: '30m' },
       }),
     }),

@@ -74,7 +74,12 @@ let AuthService = class AuthService {
         if (!isMatch) {
             throw new common_1.UnauthorizedException('Credenciales inválidas');
         }
-        const payload = { id: user.id, email: user.email, name: user.name, role: user.role };
+        const payload = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+        };
         const token = this.jwtService.sign(payload);
         await this.auditService.logAudit(user.id, user.name, user.role, 'INICIO_SESION', `Inicio de sesión exitoso como ${user.role}`);
         return {

@@ -5,7 +5,15 @@ const app_module_1 = require("./app.module");
 async function bootstrap() {
     try {
         const app = await core_1.NestFactory.create(app_module_1.AppModule);
-        app.enableCors();
+        app.enableCors({
+            origin: [
+                'http://localhost:3000',
+                'http://localhost:5173',
+                'https://tu-dominio-frontend.vercel.app',
+            ],
+            methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+            credentials: true,
+        });
         const port = process.env.PORT || 3000;
         await app.listen(port, '0.0.0.0');
         console.log(`🚀 Aplicación arrancada correctamente en el puerto ${port}`);

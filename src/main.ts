@@ -9,7 +9,11 @@ async function bootstrap() {
     app.enableCors({
       // Agrega tu localhost (puerto 3000 para React/Next o 5173 para Vite)
       // Asegúrate de agregar la URL pública de producción cuando despliegues tu frontend
-      origin: ['http://localhost:3000', 'http://localhost:5173', 'https://tu-dominio-frontend.vercel.app'],
+      origin: [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://tu-dominio-frontend.vercel.app',
+      ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true, // Obligatorio si manejarás cookies o envías el JWT en las cabeceras
     });

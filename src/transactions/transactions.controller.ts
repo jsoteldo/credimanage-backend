@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { TransactionsService } from './transactions.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -10,12 +19,20 @@ export class TransactionsController {
   constructor(private transactionsService: TransactionsService) {}
 
   @Post('crediApi/clients/:id/credit-purchase')
-  async addCreditPurchase(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async addCreditPurchase(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.transactionsService.addCreditPurchase(id, body, req.user);
   }
 
   @Post('crediApi/clients/:id/loans')
-  async createLoanCredit(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async createLoanCredit(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.transactionsService.createLoanCredit(id, body, req.user);
   }
 
@@ -31,18 +48,30 @@ export class TransactionsController {
 
   @Roles('Administrador')
   @Post('crediApi/loans/:id/annul')
-  async annulLoan(@Param('id') id: string, @Body('reason') reason: string, @Req() req: any) {
+  async annulLoan(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
     return this.transactionsService.annulLoan(id, reason, req.user);
   }
 
   @Post('crediApi/clients/:id/payment')
-  async registerPayment(@Param('id') id: string, @Body() body: any, @Req() req: any) {
+  async registerPayment(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
     return this.transactionsService.registerPayment(id, body, req.user);
   }
 
   @Roles('Administrador')
   @Post('crediApi/payments/:id/annul')
-  async annulPayment(@Param('id') id: string, @Body('reason') reason: string, @Req() req: any) {
+  async annulPayment(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
     return this.transactionsService.annulPayment(id, reason, req.user);
   }
 
@@ -60,8 +89,62 @@ export class TransactionsController {
 
   @Roles('Administrador')
   @Post('crediApi/payments/:id/reject')
-  async rejectPayment(@Param('id') id: string, @Body('reason') reason: string, @Req() req: any) {
+  async rejectPayment(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
     return this.transactionsService.rejectPayment(id, reason, req.user);
+  }
+
+  @Post(['crediApi/clients/:id/debt-payment', 'api/clients/:id/debt-payment'])
+  async registerDailyDebtPayment(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    return this.transactionsService.registerDailyDebtPayment(
+      id,
+      body,
+      req.user,
+    );
+  }
+
+  @Post(['crediApi/loans/:loanId/payment', 'api/loans/:loanId/payment'])
+  async registerLoanPayment(
+    @Param('loanId') loanId: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    return this.transactionsService.registerLoanPayment(
+      loanId,
+      body,
+      req.user,
+    );
+  }
+
+  @Roles('Administrador')
+  @Post(['crediApi/purchases/:id/annul', 'api/purchases/:id/annul'])
+  async annulPurchase(
+    @Param('id') id: string,
+    @Body('reason') reason: string,
+    @Req() req: any,
+  ) {
+    return this.transactionsService.annulPurchase(id, reason, req.user);
+  }
+
+  @Roles('Administrador')
+  @Post(['crediApi/payments/:id/resolve-ambiguous-reversal', 'api/payments/:id/resolve-ambiguous-reversal'])
+  async resolveAmbiguousReversal(
+    @Param('id') id: string,
+    @Body() body: any,
+    @Req() req: any,
+  ) {
+    return this.transactionsService.resolveAmbiguousReversal(
+      id,
+      body,
+      req.user,
+    );
   }
 
   @Get('crediApi/payments/history')
@@ -69,9 +152,14 @@ export class TransactionsController {
     @Query('dateFilter') dateFilter?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-    @Query('q') query?: string
+    @Query('q') query?: string,
   ) {
-    return this.transactionsService.getPaymentsHistory({ dateFilter, startDate, endDate, query });
+    return this.transactionsService.getPaymentsHistory({
+      dateFilter,
+      startDate,
+      endDate,
+      query,
+    });
   }
 
   @Get('crediApi/purchases/history')
@@ -79,8 +167,13 @@ export class TransactionsController {
     @Query('dateFilter') dateFilter?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
-    @Query('q') query?: string
+    @Query('q') query?: string,
   ) {
-    return this.transactionsService.getPurchasesHistory({ dateFilter, startDate, endDate, query });
+    return this.transactionsService.getPurchasesHistory({
+      dateFilter,
+      startDate,
+      endDate,
+      query,
+    });
   }
 }

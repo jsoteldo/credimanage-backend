@@ -13,7 +13,7 @@ export class AuditService {
     action: string,
     details: string,
     targetId?: string,
-    ip?: string
+    ip?: string,
   ) {
     return this.prisma.auditLog.create({
       data: {

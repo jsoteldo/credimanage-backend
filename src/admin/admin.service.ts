@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { UserRole } from '@prisma/client';
@@ -8,7 +12,7 @@ import * as bcrypt from 'bcryptjs';
 export class AdminService {
   constructor(
     private prisma: PrismaService,
-    private auditService: AuditService
+    private auditService: AuditService,
   ) {}
 
   async getUsers() {
@@ -24,7 +28,9 @@ export class AdminService {
     });
 
     if (existing) {
-      throw new BadRequestException('Ya existe un usuario registrado con este correo');
+      throw new BadRequestException(
+        'Ya existe un usuario registrado con este correo',
+      );
     }
 
     const password = data.password ? data.password : '123456';
@@ -36,7 +42,8 @@ export class AdminService {
         email,
         password: passwordHash,
         role: (data.role || 'Generico') as UserRole,
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
+        avatar:
+          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150',
         active: data.active !== undefined ? Boolean(data.active) : true,
         approved: data.approved !== undefined ? Boolean(data.approved) : true,
       },
@@ -48,7 +55,7 @@ export class AdminService {
       adminUser.role,
       'CREAR_USUARIO',
       `Nuevo usuario de sistema creado: ${newUser.name} (${newUser.email}) con rol ${newUser.role}`,
-      newUser.id
+      newUser.id,
     );
 
     return newUser;
@@ -73,7 +80,7 @@ export class AdminService {
       adminUser.role,
       'APROBAR_USUARIO',
       `Usuario ${updated.name} aprobado por Administrador`,
-      updated.id
+      updated.id,
     );
     return updated;
   }
@@ -93,7 +100,7 @@ export class AdminService {
       adminUser.role,
       'HABILITAR_USUARIO',
       `Usuario ${updated.name} habilitado por Administrador`,
-      updated.id
+      updated.id,
     );
     return updated;
   }
@@ -113,7 +120,7 @@ export class AdminService {
       adminUser.role,
       'DESHABILITAR_USUARIO',
       `Usuario ${updated.name} deshabilitado por Administrador`,
-      updated.id
+      updated.id,
     );
     return updated;
   }
@@ -127,7 +134,8 @@ export class AdminService {
     if (data.email) updateData.email = data.email.trim().toLowerCase();
     if (data.role) updateData.role = data.role as UserRole;
     if (data.active !== undefined) updateData.active = Boolean(data.active);
-    if (data.approved !== undefined) updateData.approved = Boolean(data.approved);
+    if (data.approved !== undefined)
+      updateData.approved = Boolean(data.approved);
 
     if (data.password) {
       updateData.password = bcrypt.hashSync(data.password, 10);
@@ -144,7 +152,7 @@ export class AdminService {
       adminUser.role,
       'ACTUALIZAR_USUARIO',
       `Usuario ${updated.name} actualizado por Administrador`,
-      updated.id
+      updated.id,
     );
     return updated;
   }

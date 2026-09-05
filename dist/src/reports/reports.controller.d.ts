@@ -3,21 +3,7 @@ export declare class ReportsController {
     private reportsService;
     constructor(reportsService: ReportsService);
     getBalanceReport(filter?: string, q?: string): Promise<{
-        report: {
-            id: string;
-            name: string;
-            createdAt: Date;
-            updatedAt: Date;
-            clientNumber: string;
-            phone: string;
-            address: string;
-            creditLimit: number;
-            currentBalance: number;
-            paymentPeriod: import("@prisma/client").$Enums.PaymentPeriod;
-            paymentDay: string;
-            nextDueDate: string;
-            status: import("@prisma/client").$Enums.ClientStatus;
-        }[];
+        report: any[];
         summary: {
             totalClientsDebt: number;
             totalPortfolioAmount: number;
