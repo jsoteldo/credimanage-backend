@@ -10,6 +10,7 @@ export declare class AuthController {
             email: string;
             role: import("@prisma/client").$Enums.UserRole;
             avatar: string | null;
+            permissions: string[];
         };
     }>;
     register(body: any): Promise<{
@@ -30,6 +31,7 @@ export declare class AuthController {
             avatar: any;
             active: any;
             approved: any;
+            permissions: any;
             createdAt: any;
         };
     }>;

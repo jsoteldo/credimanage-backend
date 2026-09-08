@@ -28,11 +28,11 @@ export declare class ClientsService {
         purchases: {
             id: string;
             createdAt: Date | null;
+            product: string;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
             isBaselineMovement: boolean;
-            product: string;
             unitPrice: number;
             quantity: number;
             amount: number;
@@ -91,17 +91,17 @@ export declare class ClientsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            product: string | null;
+            code: string;
             status: import("@prisma/client").$Enums.LoanStatus;
             clientId: string;
             date: Date;
-            product: string | null;
             ticketNumber: string | null;
             registeredBy: string;
             annulledAt: Date | null;
             annulledBy: string | null;
             annulmentReason: string | null;
             notes: string | null;
-            code: string;
             capital: number;
             interestRate: number;
             interestAmount: number;

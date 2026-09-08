@@ -22,12 +22,45 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: any) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.id },
+      include: {
+        roleEntity: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user || !user.active) {
       throw new UnauthorizedException('Usuario no encontrado o inactivado');
     }
 
-    return user;
+    let permissions: string[] = [];
+    if (user.roleEntity && user.roleEntity.permissions) {
+      permissions = user.roleEntity.permissions.map(
+        (rp) => rp.permission.code,
+      );
+    } else if (user.role) {
+      const role = await this.prisma.role.findUnique({
+        where: { name: user.role },
+        include: {
+          permissions: {
+            include: { permission: true },
+          },
+        },
+      });
+      if (role && role.permissions) {
+        permissions = role.permissions.map((rp) => rp.permission.code);
+      }
+    }
+
+    return {
+      ...user,
+      permissions,
+    };
   }
 }

@@ -8,11 +8,37 @@ export declare class JwtStrategy extends JwtStrategy_base {
     private prisma;
     constructor(configService: ConfigService, prisma: PrismaService);
     validate(payload: any): Promise<{
+        permissions: string[];
+        roleEntity: ({
+            permissions: ({
+                permission: {
+                    id: string;
+                    name: string;
+                    createdAt: Date;
+                    description: string | null;
+                    code: string;
+                    module: string;
+                };
+            } & {
+                id: string;
+                roleId: string;
+                createdAt: Date;
+                permissionId: string;
+            })[];
+        } & {
+            id: string;
+            name: string;
+            createdAt: Date;
+            updatedAt: Date;
+            description: string | null;
+            isSystem: boolean;
+        }) | null;
         id: string;
         email: string;
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;

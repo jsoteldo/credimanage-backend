@@ -82,6 +82,25 @@ let AuthService = class AuthService {
         };
         const token = this.jwtService.sign(payload);
         await this.auditService.logAudit(user.id, user.name, user.role, 'INICIO_SESION', `Inicio de sesión exitoso como ${user.role}`);
+        let permissions = [];
+        if (user.roleId) {
+            const role = await this.prisma.role.findUnique({
+                where: { id: user.roleId },
+                include: { permissions: { include: { permission: true } } },
+            });
+            if (role?.permissions) {
+                permissions = role.permissions.map((rp) => rp.permission.code);
+            }
+        }
+        if (permissions.length === 0 && user.role) {
+            const role = await this.prisma.role.findUnique({
+                where: { name: user.role },
+                include: { permissions: { include: { permission: true } } },
+            });
+            if (role?.permissions) {
+                permissions = role.permissions.map((rp) => rp.permission.code);
+            }
+        }
         return {
             token,
             user: {
@@ -90,6 +109,7 @@ let AuthService = class AuthService {
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
+                permissions,
             },
         };
     }

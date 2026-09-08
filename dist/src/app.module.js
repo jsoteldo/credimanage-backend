@@ -19,6 +19,11 @@ const clients_module_1 = require("./clients/clients.module");
 const transactions_module_1 = require("./transactions/transactions.module");
 const reports_module_1 = require("./reports/reports.module");
 const admin_module_1 = require("./admin/admin.module");
+const locations_module_1 = require("./locations/locations.module");
+const departments_module_1 = require("./departments/departments.module");
+const suppliers_module_1 = require("./suppliers/suppliers.module");
+const products_module_1 = require("./products/products.module");
+const roles_module_1 = require("./roles/roles.module");
 const rootDistPath = (0, path_1.join)(process.cwd(), 'dist');
 const parentDistPath = (0, path_1.join)(process.cwd(), '..', 'dist');
 const distPath = (0, fs_1.existsSync)(rootDistPath) ? rootDistPath : parentDistPath;
@@ -42,6 +47,11 @@ exports.AppModule = AppModule = __decorate([
             transactions_module_1.TransactionsModule,
             reports_module_1.ReportsModule,
             admin_module_1.AdminModule,
+            locations_module_1.LocationsModule,
+            departments_module_1.DepartmentsModule,
+            suppliers_module_1.SuppliersModule,
+            products_module_1.ProductsModule,
+            roles_module_1.RolesModule,
         ],
     })
 ], AppModule);

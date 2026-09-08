@@ -28,6 +28,7 @@ export class AuthController {
         avatar: req.user.avatar,
         active: req.user.active,
         approved: req.user.approved,
+        permissions: req.user.permissions || [],
         createdAt: req.user.createdAt,
       },
     };

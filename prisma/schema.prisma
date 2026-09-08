@@ -56,6 +56,8 @@ model User {
   email      String    @unique
   password   String
   role       UserRole
+  roleId     String?
+  roleEntity Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
   avatar     String?
   active     Boolean   @default(true)
   approved   Boolean   @default(false)
@@ -257,4 +259,138 @@ model BalanceAdjustment {
   status     String                @default("ACTIVO")
 
   @@unique([sourceType, sourceId, type], name: "source_adjustment_unique")
+}
+
+// =========================================================================
+// MÓDULO PRODUCTOS E INVENTARIO - BASE DEL DOMINIO (ENTREGA 1)
+// =========================================================================
+
+enum LocationType {
+  STORE
+  WAREHOUSE
+}
+
+enum ProductSaleType {
+  UNIT
+  WEIGHT
+  KIT
+}
+
+model Location {
+  id          String       @id @default(uuid())
+  businessId  String       @default("default")
+  name        String
+  code        String?
+  address     String?
+  type        LocationType @default(STORE)
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([businessId, name])
+  @@unique([businessId, code])
+  @@index([businessId, active])
+}
+
+model Department {
+  id          String    @id @default(uuid())
+  businessId  String    @default("default")
+  name        String
+  description String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@unique([businessId, name])
+  @@index([businessId, active])
+}
+
+model Supplier {
+  id          String    @id @default(uuid())
+  businessId  String    @default("default")
+  name        String
+  taxId       String?
+  phone       String?
+  email       String?
+  address     String?
+  contactName String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([businessId, name])
+  @@index([businessId, active])
+}
+
+model Product {
+  id              String          @id @default(uuid())
+  businessId      String          @default("default")
+  sku             String
+  barcode         String?
+  name            String
+  description     String?
+  departmentId    String?
+  department      Department?     @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  saleType        ProductSaleType @default(UNIT)
+  costPrice       Decimal         @default(0) @db.Decimal(12, 4)
+  salePrice       Decimal         @default(0) @db.Decimal(12, 4)
+  wholesalePrice  Decimal         @default(0) @db.Decimal(12, 4)
+  tracksInventory Boolean         @default(true)
+  defaultMinStock Decimal?        @default(0) @db.Decimal(12, 3)
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  kitComponents   ProductKitComponent[] @relation("KitParent")
+  componentOfKits ProductKitComponent[] @relation("ComponentProduct")
+
+  @@unique([businessId, sku])
+  @@unique([businessId, barcode])
+  @@index([businessId, active])
+}
+
+model ProductKitComponent {
+  id                 String   @id @default(uuid())
+  kitProductId       String
+  kitProduct         Product  @relation("KitParent", fields: [kitProductId], references: [id], onDelete: Cascade)
+  componentProductId String
+  componentProduct   Product  @relation("ComponentProduct", fields: [componentProductId], references: [id], onDelete: Restrict)
+  quantity           Decimal  @db.Decimal(12, 3)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([kitProductId, componentProductId])
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id          String           @id @default(uuid())
+  code        String           @unique
+  name        String
+  module      String
+  description String?
+  createdAt   DateTime         @default(now())
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([roleId, permissionId])
 }

@@ -10,6 +10,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -24,6 +25,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -38,6 +40,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -52,6 +55,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -66,6 +70,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -80,6 +85,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -94,6 +100,7 @@ export declare class AdminService {
         name: string;
         password: string;
         role: import("@prisma/client").$Enums.UserRole;
+        roleId: string | null;
         avatar: string | null;
         active: boolean;
         approved: boolean;
@@ -117,11 +124,11 @@ export declare class AdminService {
         annulledPurchases: {
             id: string;
             createdAt: Date | null;
+            product: string;
             status: import("@prisma/client").$Enums.OperationStatus;
             clientId: string;
             date: Date;
             isBaselineMovement: boolean;
-            product: string;
             unitPrice: number;
             quantity: number;
             amount: number;
