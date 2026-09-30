@@ -1,9 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TransactionsService } from './transactions.service';
-import { BalanceSyncService, validatePaymentAllocations } from './balance-sync.service';
+import {
+  BalanceSyncService,
+  validatePaymentAllocations,
+} from './balance-sync.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { BadRequestException, NotFoundException, HttpException } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+  HttpException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
@@ -12,7 +19,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
   let mockPrisma: any;
   let mockAudit: any;
 
-  const mockAdmin = { id: 'usr-admin', name: 'Admin Test', role: 'Administrador' };
+  const mockAdmin = {
+    id: 'usr-admin',
+    name: 'Admin Test',
+    role: 'Administrador',
+  };
   const mockCajero = { id: 'usr-cajero', name: 'Cajero Test', role: 'Cajero' };
 
   beforeEach(async () => {
@@ -109,7 +120,15 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         paidAmount: 0,
         status: 'Activo',
         installments: [
-          { id: 'inst-1', loanId: 'loan-coex', installmentNumber: 1, amount: 700, paidAmount: 0, dueDate: '2026-10-01', status: 'Pendiente' },
+          {
+            id: 'inst-1',
+            loanId: 'loan-coex',
+            installmentNumber: 1,
+            amount: 700,
+            paidAmount: 0,
+            dueDate: '2026-10-01',
+            status: 'Pendiente',
+          },
         ],
       };
 
@@ -140,7 +159,8 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.payment.findMany.mockResolvedValue([dailyPay]);
 
-      const afterDailyPay = await balanceSyncService.syncClientBalances('cli-coex');
+      const afterDailyPay =
+        await balanceSyncService.syncClientBalances('cli-coex');
       expect(afterDailyPay.dailyDebtBalance).toBe(200);
       expect(afterDailyPay.bankDebtBalance).toBe(700);
       expect(afterDailyPay.currentBalance).toBe(900);
@@ -150,7 +170,9 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         ...loan,
         pendingAmount: 600,
         paidAmount: 100,
-        installments: [{ ...loan.installments[0], paidAmount: 100, status: 'Parcial' }],
+        installments: [
+          { ...loan.installments[0], paidAmount: 100, status: 'Parcial' },
+        ],
       };
       mockPrisma.loan.findMany.mockResolvedValue([updatedLoan]);
       const bankPay = {
@@ -162,11 +184,19 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         isBaselineMovement: false,
         createdAt: new Date('2026-09-05T11:00:00.000Z'),
         status: 'Activo',
-        allocations: [{ targetType: 'bankLoan', loanId: 'loan-coex', installmentNumber: 1, amount: 100 }],
+        allocations: [
+          {
+            targetType: 'bankLoan',
+            loanId: 'loan-coex',
+            installmentNumber: 1,
+            amount: 100,
+          },
+        ],
       };
       mockPrisma.payment.findMany.mockResolvedValue([dailyPay, bankPay]);
 
-      const afterBankPay = await balanceSyncService.syncClientBalances('cli-coex');
+      const afterBankPay =
+        await balanceSyncService.syncClientBalances('cli-coex');
       expect(afterBankPay.dailyDebtBalance).toBe(200);
       expect(afterBankPay.bankDebtBalance).toBe(600);
       expect(afterBankPay.currentBalance).toBe(800);
@@ -184,7 +214,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.client.findUnique.mockResolvedValue(client);
 
-      const res = await transactionsService.registerDailyDebtPayment('cli-1', { isFullPayoff: true }, mockAdmin);
+      const res = await transactionsService.registerDailyDebtPayment(
+        'cli-1',
+        { isFullPayoff: true },
+        mockAdmin,
+      );
       expect(res.payment.amount).toBe(150);
       expect(res.payment.targetType).toBe('dailyDebt');
     });
@@ -199,7 +233,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.client.findUnique.mockResolvedValue(client);
 
-      const res = await transactionsService.registerDailyDebtPayment('cli-1', { amount: 50 }, mockAdmin);
+      const res = await transactionsService.registerDailyDebtPayment(
+        'cli-1',
+        { amount: 50 },
+        mockAdmin,
+      );
       expect(res.payment.amount).toBe(50);
       expect(res.payment.targetType).toBe('dailyDebt');
     });
@@ -214,23 +252,46 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         paidAmount: 200,
         status: 'Activo',
         installments: [
-          { id: 'inst-1', loanId: 'loan-1', installmentNumber: 1, amount: 150, paidAmount: 0, dueDate: '2026-10-01', status: 'Pendiente' },
-          { id: 'inst-2', loanId: 'loan-1', installmentNumber: 2, amount: 150, paidAmount: 0, dueDate: '2026-11-01', status: 'Pendiente' },
+          {
+            id: 'inst-1',
+            loanId: 'loan-1',
+            installmentNumber: 1,
+            amount: 150,
+            paidAmount: 0,
+            dueDate: '2026-10-01',
+            status: 'Pendiente',
+          },
+          {
+            id: 'inst-2',
+            loanId: 'loan-1',
+            installmentNumber: 2,
+            amount: 150,
+            paidAmount: 0,
+            dueDate: '2026-11-01',
+            status: 'Pendiente',
+          },
         ],
       };
       mockPrisma.loan.findFirst.mockResolvedValue(loan);
       mockPrisma.loan.findUnique.mockResolvedValue(loan);
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', currentBalance: 500 });
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        currentBalance: 500,
+      });
       mockPrisma.installment.findMany.mockResolvedValue(loan.installments);
 
-      const res = await transactionsService.registerLoanPayment('loan-1', { amount: 150 }, mockAdmin);
+      const res = await transactionsService.registerLoanPayment(
+        'loan-1',
+        { amount: 150 },
+        mockAdmin,
+      );
       expect(res.payment.targetType).toBe('bankLoan');
       expect(res.payment.amount).toBe(150);
       expect(mockPrisma.installment.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'inst-1' },
           data: expect.objectContaining({ paidAmount: 150, status: 'Pagada' }),
-        })
+        }),
       );
     });
 
@@ -245,10 +306,17 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         installments: [],
       };
       mockPrisma.loan.findFirst.mockResolvedValue(loan);
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', currentBalance: 500 });
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        currentBalance: 500,
+      });
 
       await expect(
-        transactionsService.registerLoanPayment('loan-1', { amount: 250 }, mockAdmin)
+        transactionsService.registerLoanPayment(
+          'loan-1',
+          { amount: 250 },
+          mockAdmin,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -261,20 +329,61 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         pendingAmount: 300,
         status: 'Activo',
         installments: [
-          { id: 'inst-1', loanId: 'loan-1', installmentNumber: 1, amount: 100, paidAmount: 0, dueDate: '2026-09-01', status: 'Pendiente' },
-          { id: 'inst-2', loanId: 'loan-1', installmentNumber: 2, amount: 100, paidAmount: 0, dueDate: '2026-10-01', status: 'Pendiente' },
-          { id: 'inst-3', loanId: 'loan-1', installmentNumber: 3, amount: 100, paidAmount: 0, dueDate: '2026-11-01', status: 'Pendiente' },
+          {
+            id: 'inst-1',
+            loanId: 'loan-1',
+            installmentNumber: 1,
+            amount: 100,
+            paidAmount: 0,
+            dueDate: '2026-09-01',
+            status: 'Pendiente',
+          },
+          {
+            id: 'inst-2',
+            loanId: 'loan-1',
+            installmentNumber: 2,
+            amount: 100,
+            paidAmount: 0,
+            dueDate: '2026-10-01',
+            status: 'Pendiente',
+          },
+          {
+            id: 'inst-3',
+            loanId: 'loan-1',
+            installmentNumber: 3,
+            amount: 100,
+            paidAmount: 0,
+            dueDate: '2026-11-01',
+            status: 'Pendiente',
+          },
         ],
       };
       mockPrisma.loan.findFirst.mockResolvedValue(loan);
       mockPrisma.loan.findUnique.mockResolvedValue(loan);
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', currentBalance: 300 });
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        currentBalance: 300,
+      });
       mockPrisma.installment.findMany.mockResolvedValue(loan.installments);
 
-      const res = await transactionsService.registerLoanPayment('loan-1', { amount: 150 }, mockAdmin);
+      const res = await transactionsService.registerLoanPayment(
+        'loan-1',
+        { amount: 150 },
+        mockAdmin,
+      );
       expect(res.payment.allocations).toEqual([
-        { targetType: 'bankLoan', loanId: 'loan-1', installmentNumber: 1, amount: 100 },
-        { targetType: 'bankLoan', loanId: 'loan-1', installmentNumber: 2, amount: 50 },
+        {
+          targetType: 'bankLoan',
+          loanId: 'loan-1',
+          installmentNumber: 1,
+          amount: 100,
+        },
+        {
+          targetType: 'bankLoan',
+          loanId: 'loan-1',
+          installmentNumber: 2,
+          amount: 50,
+        },
       ]);
     });
 
@@ -289,18 +398,26 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.client.findUnique.mockResolvedValue(client);
 
-      // Exposición actual = 200 + 300 = 500. Compra de 150 excede límite de 600 (500 + 150 = 650 > 600)
+      // Deuda diaria actual = 200. Compra de 450 excede límite de compras de 600 (200 + 450 = 650 > 600)
       await expect(
-        transactionsService.addCreditPurchase('cli-1', { unitPrice: 150, quantity: 1, product: 'Zapatos' }, mockAdmin)
+        transactionsService.addCreditPurchase(
+          'cli-1',
+          { unitPrice: 450, quantity: 1, product: 'Zapatos' },
+          mockAdmin,
+        ),
       ).rejects.toThrow(BadRequestException);
 
-      // Compra de 80 cabe dentro del límite (500 + 80 = 580 <= 600)
-      const res = await transactionsService.addCreditPurchase('cli-1', { unitPrice: 80, quantity: 1, product: 'Pantalón' }, mockAdmin);
+      // Compra de 80 cabe dentro del límite (200 + 80 = 280 <= 600)
+      const res = await transactionsService.addCreditPurchase(
+        'cli-1',
+        { unitPrice: 80, quantity: 1, product: 'Pantalón' },
+        mockAdmin,
+      );
       expect(res.purchase).toBeDefined();
       expect(res.purchase.isBaselineMovement).toBe(false);
     });
 
-    it('I & J: createLoanCredit aumenta solo deuda bancaria y respeta exposición crediticia', async () => {
+    it('I & J: createLoanCredit aumenta solo deuda bancaria y no está restringido por límite de compras', async () => {
       const client = {
         id: 'cli-1',
         name: 'Cliente Límite',
@@ -310,10 +427,13 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.client.findUnique.mockResolvedValue(client);
 
-      // Préstamo de capital 700 con 10% interés = 770. 400 + 770 = 1170 > 1000 -> rechaza
-      await expect(
-        transactionsService.createLoanCredit('cli-1', { capital: 700, interestRate: 10, installmentsCount: 2 }, mockAdmin)
-      ).rejects.toThrow(BadRequestException);
+      // Préstamo de capital 700 con 10% interés = 770. Aunque 400 + 770 = 1170 > 1000 (límite de compras), se permite ya que los límites están desacoplados.
+      const res = await transactionsService.createLoanCredit(
+        'cli-1',
+        { capital: 700, interestRate: 10, installmentsCount: 2 },
+        mockAdmin,
+      );
+      expect(res.loan).toBeDefined();
     });
 
     it('K & L: annulLoan anula préstamo sin pagos y rechaza si tiene pagos', async () => {
@@ -326,10 +446,13 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         status: 'Activo',
       };
       mockPrisma.loan.findFirst.mockResolvedValue(loanWithPayments);
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', openingSnapshots: [] });
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        openingSnapshots: [],
+      });
 
       await expect(
-        transactionsService.annulLoan('loan-paid', 'Error de tipeo', mockAdmin)
+        transactionsService.annulLoan('loan-paid', 'Error de tipeo', mockAdmin),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -346,7 +469,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.payment.findUnique.mockResolvedValue(postDailyPay);
       mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1' });
 
-      const res = await transactionsService.annulPayment('pay-post-daily', 'Anulación diaria', mockAdmin);
+      const res = await transactionsService.annulPayment(
+        'pay-post-daily',
+        'Anulación diaria',
+        mockAdmin,
+      );
       expect(res.message).toContain('Abono anulado con éxito');
       expect(mockPrisma.balanceAdjustment.create).not.toHaveBeenCalled();
     });
@@ -364,12 +491,18 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.loan.count.mockResolvedValue(1); // tiene préstamos
 
       try {
-        await transactionsService.annulPayment('pay-base-ambig', 'Motivo', mockAdmin);
+        await transactionsService.annulPayment(
+          'pay-base-ambig',
+          'Motivo',
+          mockAdmin,
+        );
         fail('Debería haber arrojado 422');
       } catch (err: any) {
         expect(err).toBeInstanceOf(HttpException);
         expect(err.getStatus()).toBe(422);
-        expect(err.getResponse().code).toBe('LEGACY_PAYMENT_ALLOCATION_AMBIGUOUS');
+        expect(err.getResponse().code).toBe(
+          'LEGACY_PAYMENT_ALLOCATION_AMBIGUOUS',
+        );
       }
     });
 
@@ -387,9 +520,13 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.loan.findMany.mockResolvedValue([]);
 
       const synced = await balanceSyncService.syncClientBalances('cli-inv');
-      expect(synced.currentBalance).toBe(synced.dailyDebtBalance + synced.bankDebtBalance);
+      expect(synced.currentBalance).toBe(
+        synced.dailyDebtBalance + synced.bankDebtBalance,
+      );
       expect(synced.bankDebtBalance).toBeGreaterThanOrEqual(0);
-      expect(synced.creditExposure).toBeGreaterThanOrEqual(synced.bankDebtBalance);
+      expect(synced.creditExposure).toBeGreaterThanOrEqual(
+        synced.bankDebtBalance,
+      );
     });
   });
 
@@ -405,7 +542,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.creditPurchase.findUnique.mockResolvedValue(baselinePurchase);
       mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1' });
 
-      await transactionsService.annulPurchase('pur-base-1', 'Error histórico', mockAdmin);
+      await transactionsService.annulPurchase(
+        'pur-base-1',
+        'Error histórico',
+        mockAdmin,
+      );
       expect(mockPrisma.balanceAdjustment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -414,7 +555,7 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
             sourceId: 'pur-base-1',
             amount: 40,
           }),
-        })
+        }),
       );
     });
 
@@ -429,7 +570,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.creditPurchase.findUnique.mockResolvedValue(postPurchase);
       mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1' });
 
-      await transactionsService.annulPurchase('pur-post-1', 'Devolución post', mockAdmin);
+      await transactionsService.annulPurchase(
+        'pur-post-1',
+        'Devolución post',
+        mockAdmin,
+      );
       expect(mockPrisma.balanceAdjustment.create).not.toHaveBeenCalled();
     });
 
@@ -445,7 +590,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1' });
       mockPrisma.loan.count.mockResolvedValue(0);
 
-      await transactionsService.annulPayment('pay-base-no-loans', 'Anulación pago puro', mockAdmin);
+      await transactionsService.annulPayment(
+        'pay-base-no-loans',
+        'Anulación pago puro',
+        mockAdmin,
+      );
       expect(mockPrisma.balanceAdjustment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -454,7 +603,7 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
             sourceId: 'pay-base-no-loans',
             amount: 80,
           }),
-        })
+        }),
       );
     });
 
@@ -484,7 +633,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         ],
       });
 
-      await transactionsService.annulLoan('loan-base-1', 'Anulación crédito baseline', mockAdmin);
+      await transactionsService.annulLoan(
+        'loan-base-1',
+        'Anulación crédito baseline',
+        mockAdmin,
+      );
       expect(mockPrisma.balanceAdjustment.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -493,7 +646,7 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
             sourceId: 'loan-base-1',
             amount: 1000,
           }),
-        })
+        }),
       );
     });
   });
@@ -637,8 +790,8 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.balanceAdjustment.findMany.mockResolvedValue([]);
 
       const res = await balanceSyncService.syncClientBalances('cli-dec');
-      expect(res.dailyDebtBalance).toBe(31.00);
-      expect(res.currentBalance).toBe(31.00);
+      expect(res.dailyDebtBalance).toBe(31.0);
+      expect(res.currentBalance).toBe(31.0);
     });
 
     it('AE: Saldo a favor permitido en deuda corriente (dailyDebtBalance < 0)', async () => {
@@ -652,7 +805,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       mockPrisma.client.findUnique.mockResolvedValue(client);
 
       // Abono de 80 supera deuda de 50 -> permitido en deuda diaria
-      const res = await transactionsService.registerDailyDebtPayment('cli-favor', { amount: 80 }, mockAdmin);
+      const res = await transactionsService.registerDailyDebtPayment(
+        'cli-favor',
+        { amount: 80 },
+        mockAdmin,
+      );
       expect(res.payment.amount).toBe(80);
       expect(res.payment.targetType).toBe('dailyDebt');
     });
@@ -668,11 +825,18 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         installments: [],
       };
       mockPrisma.loan.findFirst.mockResolvedValue(loan);
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', currentBalance: 100 });
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        currentBalance: 100,
+      });
 
       // Abono de 120 supera saldo de 100 -> Rechazado
       await expect(
-        transactionsService.registerLoanPayment('loan-af', { amount: 120 }, mockAdmin)
+        transactionsService.registerLoanPayment(
+          'loan-af',
+          { amount: 120 },
+          mockAdmin,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
 
@@ -684,7 +848,7 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.creditPurchase.findUnique.mockResolvedValue(annulledPurchase);
       await expect(
-        transactionsService.annulPurchase('pur-annulled', 'Motivo', mockAdmin)
+        transactionsService.annulPurchase('pur-annulled', 'Motivo', mockAdmin),
       ).rejects.toThrow('Esta compra ya se encuentra anulada');
     });
 
@@ -696,7 +860,7 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.payment.findUnique.mockResolvedValue(annulledPayment);
       await expect(
-        transactionsService.annulPayment('pay-annulled', 'Motivo', mockAdmin)
+        transactionsService.annulPayment('pay-annulled', 'Motivo', mockAdmin),
       ).rejects.toThrow('Este abono ya se encuentra anulado');
     });
 
@@ -709,7 +873,7 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.loan.findFirst.mockResolvedValue(annulledLoan);
       await expect(
-        transactionsService.annulLoan('loan-annulled', 'Motivo', mockAdmin)
+        transactionsService.annulLoan('loan-annulled', 'Motivo', mockAdmin),
       ).rejects.toThrow('Este crédito ya se encuentra anulado');
     });
 
@@ -723,7 +887,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
       };
       mockPrisma.client.findUnique.mockResolvedValue(client);
 
-      const res = await transactionsService.registerDailyDebtPayment('cli-caj', { amount: 40 }, mockCajero);
+      const res = await transactionsService.registerDailyDebtPayment(
+        'cli-caj',
+        { amount: 40 },
+        mockCajero,
+      );
       expect(res.payment.approvedStatus).toBe('PENDING_APPROVAL');
       expect(res.payment.resultingBalance).toBe(100); // Intact until approved
 
@@ -734,15 +902,28 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         amount: 40,
         approvedStatus: 'PENDING_APPROVAL',
       });
-      const rejectRes = await transactionsService.rejectPayment('pay-pending-1', 'Comprobante ilegible', mockAdmin);
+      const rejectRes = await transactionsService.rejectPayment(
+        'pay-pending-1',
+        'Comprobante ilegible',
+        mockAdmin,
+      );
       expect(rejectRes.message).toContain('Abono rechazado con éxito');
     });
   });
 
   describe('Tests de Integridad y Carrera AL - AS (User Prompt Corrections)', () => {
     it('AL: Toda nueva compra se inserta con isBaselineMovement = false', async () => {
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', name: 'Cliente', currentBalance: 0, creditLimit: 500 });
-      const res = await transactionsService.addCreditPurchase('cli-1', { unitPrice: 25, quantity: 2, product: 'Camisa' }, mockAdmin);
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        name: 'Cliente',
+        currentBalance: 0,
+        creditLimit: 500,
+      });
+      const res = await transactionsService.addCreditPurchase(
+        'cli-1',
+        { unitPrice: 25, quantity: 2, product: 'Camisa' },
+        mockAdmin,
+      );
       expect(res.purchase.isBaselineMovement).toBe(false);
     });
 
@@ -816,7 +997,9 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         validatePaymentAllocations(100, 'dailyDebt', [
           { targetType: 'dailyDebt', amount: 90 },
         ]);
-      }).toThrow('BALANCE_LEDGER_INTEGRITY_ERROR: La suma de allocations (90.00) no coincide con el importe total del pago (100.00).');
+      }).toThrow(
+        'BALANCE_LEDGER_INTEGRITY_ERROR: La suma de allocations (90.00) no coincide con el importe total del pago (100.00).',
+      );
     });
 
     it('AP: Payment bankLoan con allocation apuntando a otro préstamo lanza error', () => {
@@ -826,9 +1009,11 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
           'bankLoan',
           [{ targetType: 'bankLoan', loanId: 'loan-WRONG', amount: 100 }],
           'loan-TARGET',
-          ['loan-TARGET']
+          ['loan-TARGET'],
         );
-      }).toThrow('BALANCE_LEDGER_INTEGRITY_ERROR: Allocation bancaria apunta a un préstamo (loan-WRONG) distinto al objetivo (loan-TARGET).');
+      }).toThrow(
+        'BALANCE_LEDGER_INTEGRITY_ERROR: Allocation bancaria apunta a un préstamo (loan-WRONG) distinto al objetivo (loan-TARGET).',
+      );
     });
 
     it('AQ: legacyMixed con allocations correctas suma exacta y sincroniza ambas carteras', async () => {
@@ -837,7 +1022,13 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         { targetType: 'bankLoan', loanId: 'loan-1', amount: 60 },
       ];
       expect(() => {
-        validatePaymentAllocations(100, 'legacyMixed', mixedAllocations, undefined, ['loan-1']);
+        validatePaymentAllocations(
+          100,
+          'legacyMixed',
+          mixedAllocations,
+          undefined,
+          ['loan-1'],
+        );
       }).not.toThrow();
 
       const client = {
@@ -889,14 +1080,20 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         status: 'Activo',
       };
       mockPrisma.payment.findUnique.mockResolvedValue(historicalPayment);
-      mockPrisma.client.findUnique.mockResolvedValue({ id: 'cli-1', name: 'Cliente' });
+      mockPrisma.client.findUnique.mockResolvedValue({
+        id: 'cli-1',
+        name: 'Cliente',
+      });
       mockPrisma.balanceAdjustment.findFirst.mockResolvedValue(null);
       mockPrisma.loan.findFirst.mockImplementation(({ where }) => ({
         id: where.id,
         clientId: 'cli-1',
       }));
       mockPrisma.installment.findMany.mockResolvedValue([]);
-      mockPrisma.loan.findUnique.mockResolvedValue({ id: 'loan-1', totalAmount: 500 });
+      mockPrisma.loan.findUnique.mockResolvedValue({
+        id: 'loan-1',
+        totalAmount: 500,
+      });
 
       const res = await transactionsService.resolveAmbiguousReversal(
         'pay-ambig-2loans',
@@ -908,16 +1105,18 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
           ],
           reason: 'Resolución multipartita',
         },
-        mockAdmin
+        mockAdmin,
       );
 
-      expect(res.message).toContain('Abono ambiguo resuelto y anulado con éxito');
+      expect(res.message).toContain(
+        'Abono ambiguo resuelto y anulado con éxito',
+      );
       // Verify payment was marked Anulado
       expect(mockPrisma.payment.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 'pay-ambig-2loans' },
           data: expect.objectContaining({ status: 'Anulado' }),
-        })
+        }),
       );
       // Verify historical targetType and allocations were NOT modified
       const updateArgs = mockPrisma.payment.update.mock.calls[0][0];
@@ -941,8 +1140,8 @@ describe('FASE 2B.1 — Balance Model Engine & Transactions Test Suite', () => {
         transactionsService.resolveAmbiguousReversal(
           'pay-already-resolved',
           { dailyDebtAmount: 100, bankAllocations: [] },
-          mockAdmin
-        )
+          mockAdmin,
+        ),
       ).rejects.toThrow(BadRequestException);
     });
   });

@@ -110,8 +110,10 @@ let ProductsService = class ProductsService {
         }
         const saleType = data.saleType || client_1.ProductSaleType.UNIT;
         const isKit = saleType === client_1.ProductSaleType.KIT;
-        const tracksInventory = isKit ? false : (data.tracksInventory !== false);
-        const defaultMinStock = isKit ? 0 : Math.max(0, Number(data.defaultMinStock) || 0);
+        const tracksInventory = isKit ? false : data.tracksInventory !== false;
+        const defaultMinStock = isKit
+            ? 0
+            : Math.max(0, Number(data.defaultMinStock) || 0);
         const costPrice = Math.max(0, Number(data.costPrice) || 0);
         const salePrice = Math.max(0, Number(data.salePrice) || 0);
         const wholesalePrice = Math.max(0, Number(data.wholesalePrice) || salePrice);

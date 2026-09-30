@@ -41,9 +41,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     let permissions: string[] = [];
     if (user.roleEntity && user.roleEntity.permissions) {
-      permissions = user.roleEntity.permissions.map(
-        (rp) => rp.permission.code,
-      );
+      permissions = user.roleEntity.permissions.map((rp) => rp.permission.code);
     } else if (user.role) {
       const role = await this.prisma.role.findUnique({
         where: { name: user.role },

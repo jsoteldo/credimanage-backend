@@ -67,8 +67,10 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
       department: {
         findMany: jest.fn(async ({ where }) => {
           return departmentsDb.filter((d) => {
-            if (where?.businessId && d.businessId !== where.businessId) return false;
-            if (where?.active !== undefined && d.active !== where.active) return false;
+            if (where?.businessId && d.businessId !== where.businessId)
+              return false;
+            if (where?.active !== undefined && d.active !== where.active)
+              return false;
             return true;
           });
         }),
@@ -76,8 +78,13 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
           return (
             departmentsDb.find((d) => {
               if (where?.id && d.id !== where.id) return false;
-              if (where?.businessId && d.businessId !== where.businessId) return false;
-              if (where?.name?.equals && d.name.toLowerCase() !== where.name.equals.toLowerCase()) return false;
+              if (where?.businessId && d.businessId !== where.businessId)
+                return false;
+              if (
+                where?.name?.equals &&
+                d.name.toLowerCase() !== where.name.equals.toLowerCase()
+              )
+                return false;
               return true;
             }) || null
           );
@@ -112,8 +119,13 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
           return (
             suppliersDb.find((s) => {
               if (where?.id && s.id !== where.id) return false;
-              if (where?.businessId && s.businessId !== where.businessId) return false;
-              if (where?.name?.equals && s.name.toLowerCase() !== where.name.equals.toLowerCase()) return false;
+              if (where?.businessId && s.businessId !== where.businessId)
+                return false;
+              if (
+                where?.name?.equals &&
+                s.name.toLowerCase() !== where.name.equals.toLowerCase()
+              )
+                return false;
               return true;
             }) || null
           );
@@ -151,9 +163,19 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
           return (
             locationsDb.find((l) => {
               if (where?.id && l.id !== where.id) return false;
-              if (where?.businessId && l.businessId !== where.businessId) return false;
-              if (where?.name?.equals && l.name.toLowerCase() !== where.name.equals.toLowerCase()) return false;
-              if (where?.code?.equals && l.code && l.code.toLowerCase() !== where.code.equals.toLowerCase()) return false;
+              if (where?.businessId && l.businessId !== where.businessId)
+                return false;
+              if (
+                where?.name?.equals &&
+                l.name.toLowerCase() !== where.name.equals.toLowerCase()
+              )
+                return false;
+              if (
+                where?.code?.equals &&
+                l.code &&
+                l.code.toLowerCase() !== where.code.equals.toLowerCase()
+              )
+                return false;
               return true;
             }) || null
           );
@@ -179,10 +201,14 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
         findMany: jest.fn(async ({ where }) => {
           return productsDb
             .filter((p) => {
-              if (where?.businessId && p.businessId !== where.businessId) return false;
-              if (where?.active !== undefined && p.active !== where.active) return false;
-              if (where?.saleType && p.saleType !== where.saleType) return false;
-              if (where?.departmentId && p.departmentId !== where.departmentId) return false;
+              if (where?.businessId && p.businessId !== where.businessId)
+                return false;
+              if (where?.active !== undefined && p.active !== where.active)
+                return false;
+              if (where?.saleType && p.saleType !== where.saleType)
+                return false;
+              if (where?.departmentId && p.departmentId !== where.departmentId)
+                return false;
               if (where?.OR) {
                 const q = where.OR[0].sku.contains.toLowerCase();
                 const match =
@@ -195,34 +221,51 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
             })
             .map((p) => ({
               ...p,
-              department: departmentsDb.find((d) => d.id === p.departmentId) || null,
+              department:
+                departmentsDb.find((d) => d.id === p.departmentId) || null,
               kitComponents: kitComponentsDb
                 .filter((kc) => kc.kitProductId === p.id)
                 .map((kc) => ({
                   ...kc,
-                  componentProduct: productsDb.find((cp) => cp.id === kc.componentProductId),
+                  componentProduct: productsDb.find(
+                    (cp) => cp.id === kc.componentProductId,
+                  ),
                 })),
             }));
         }),
         findFirst: jest.fn(async ({ where }) => {
           const found = productsDb.find((p) => {
-            if (where?.id && typeof where.id === 'string' && p.id !== where.id) return false;
+            if (where?.id && typeof where.id === 'string' && p.id !== where.id)
+              return false;
             if (where?.id?.not && p.id === where.id.not) return false;
-            if (where?.businessId && p.businessId !== where.businessId) return false;
-            if (where?.sku?.equals && p.sku.toLowerCase() !== where.sku.equals.toLowerCase()) return false;
-            if (where?.sku && typeof where.sku === 'string' && p.sku.toLowerCase() !== where.sku.toLowerCase()) return false;
+            if (where?.businessId && p.businessId !== where.businessId)
+              return false;
+            if (
+              where?.sku?.equals &&
+              p.sku.toLowerCase() !== where.sku.equals.toLowerCase()
+            )
+              return false;
+            if (
+              where?.sku &&
+              typeof where.sku === 'string' &&
+              p.sku.toLowerCase() !== where.sku.toLowerCase()
+            )
+              return false;
             if (where?.barcode && p.barcode !== where.barcode) return false;
             return true;
           });
           if (!found) return null;
           return {
             ...found,
-            department: departmentsDb.find((d) => d.id === found.departmentId) || null,
+            department:
+              departmentsDb.find((d) => d.id === found.departmentId) || null,
             kitComponents: kitComponentsDb
               .filter((kc) => kc.kitProductId === found.id)
               .map((kc) => ({
                 ...kc,
-                componentProduct: productsDb.find((cp) => cp.id === kc.componentProductId),
+                componentProduct: productsDb.find(
+                  (cp) => cp.id === kc.componentProductId,
+                ),
               })),
             componentOfKits: kitComponentsDb
               .filter((kc) => kc.componentProductId === found.id)
@@ -237,12 +280,15 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
           if (!p) return null;
           return {
             ...p,
-            department: departmentsDb.find((d) => d.id === p.departmentId) || null,
+            department:
+              departmentsDb.find((d) => d.id === p.departmentId) || null,
             kitComponents: kitComponentsDb
               .filter((kc) => kc.kitProductId === p.id)
               .map((kc) => ({
                 ...kc,
-                componentProduct: productsDb.find((cp) => cp.id === kc.componentProductId),
+                componentProduct: productsDb.find(
+                  (cp) => cp.id === kc.componentProductId,
+                ),
               })),
           };
         }),
@@ -292,7 +338,9 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
           return item;
         }),
         deleteMany: jest.fn(async ({ where }) => {
-          kitComponentsDb = kitComponentsDb.filter((kc) => kc.kitProductId !== where.kitProductId);
+          kitComponentsDb = kitComponentsDb.filter(
+            (kc) => kc.kitProductId !== where.kitProductId,
+          );
           return { count: 1 };
         }),
       },
@@ -300,7 +348,9 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
       role: {
         findMany: jest.fn(async () => rolesDb),
         findUnique: jest.fn(async ({ where }) => {
-          const r = rolesDb.find((r) => r.id === where.id || r.name === where.name);
+          const r = rolesDb.find(
+            (r) => r.id === where.id || r.name === where.name,
+          );
           if (!r) return null;
           return {
             ...r,
@@ -334,7 +384,9 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
           return { count: data.length };
         }),
         deleteMany: jest.fn(async ({ where }) => {
-          rolePermissionsDb = rolePermissionsDb.filter((rp) => rp.roleId !== where.roleId);
+          rolePermissionsDb = rolePermissionsDb.filter(
+            (rp) => rp.roleId !== where.roleId,
+          );
           return { count: 1 };
         }),
       },
@@ -553,9 +605,18 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // M. Agregar componentes al KIT
   it('M: Permite actualizar componentes de un KIT existente', async () => {
-    const c1 = await productsService.createProduct({ sku: 'C1', name: 'Comp 1' });
-    const c2 = await productsService.createProduct({ sku: 'C2', name: 'Comp 2' });
-    const c3 = await productsService.createProduct({ sku: 'C3', name: 'Comp 3' });
+    const c1 = await productsService.createProduct({
+      sku: 'C1',
+      name: 'Comp 1',
+    });
+    const c2 = await productsService.createProduct({
+      sku: 'C2',
+      name: 'Comp 2',
+    });
+    const c3 = await productsService.createProduct({
+      sku: 'C3',
+      name: 'Comp 3',
+    });
 
     const kit = await productsService.createProduct({
       sku: 'KIT-EXP',
@@ -577,7 +638,10 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // N. Cantidad componente <= 0 rechazada
   it('N: Rechaza componente de kit con cantidad <= 0', async () => {
-    const c1 = await productsService.createProduct({ sku: 'C-QTY', name: 'Comp Qty' });
+    const c1 = await productsService.createProduct({
+      sku: 'C-QTY',
+      name: 'Comp Qty',
+    });
 
     await expect(
       productsService.createProduct({
@@ -591,7 +655,10 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // O. Producto no puede contenerse a sí mismo
   it('O: Un KIT no puede contenerse a sí mismo como componente', async () => {
-    const c1 = await productsService.createProduct({ sku: 'C-BASE', name: 'Comp Base' });
+    const c1 = await productsService.createProduct({
+      sku: 'C-BASE',
+      name: 'Comp Base',
+    });
     const kit = await productsService.createProduct({
       sku: 'KIT-SELF',
       name: 'Kit Auto Referencia',
@@ -608,7 +675,10 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // P. Ciclo de kits rechazado: componentes deben ser no-KIT
   it('P: Rechaza el uso de un producto KIT como componente de otro KIT', async () => {
-    const c1 = await productsService.createProduct({ sku: 'C-SUB', name: 'Item Sub' });
+    const c1 = await productsService.createProduct({
+      sku: 'C-SUB',
+      name: 'Item Sub',
+    });
     const kitHijo = await productsService.createProduct({
       sku: 'KIT-HIJO',
       name: 'Kit Hijo',
@@ -639,7 +709,9 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
     };
 
     const reflector = new Reflector();
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['product.create']);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(['product.create']);
     const guard = new PermissionsGuard(reflector);
 
     expect(() => guard.canActivate(context)).toThrow(ForbiddenException);
@@ -662,7 +734,9 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
     };
 
     const reflector = new Reflector();
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['product.create']);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue(['product.create']);
     const guard = new PermissionsGuard(reflector);
 
     expect(guard.canActivate(context)).toBe(true);
@@ -670,8 +744,14 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // S. Búsqueda por SKU
   it('S: Búsqueda de productos filtra correctamente por SKU', async () => {
-    await productsService.createProduct({ sku: 'SEARCH-SKU-99', name: 'Refresco Cola' });
-    await productsService.createProduct({ sku: 'OTHER-SKU-11', name: 'Agua Mineral' });
+    await productsService.createProduct({
+      sku: 'SEARCH-SKU-99',
+      name: 'Refresco Cola',
+    });
+    await productsService.createProduct({
+      sku: 'OTHER-SKU-11',
+      name: 'Agua Mineral',
+    });
 
     const results = await productsService.getProducts({ q: 'SEARCH-SKU' });
     expect(results).toHaveLength(1);
@@ -770,10 +850,19 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // Y. businessId nunca queda NULL en nuevas entidades
   it('Y: businessId siempre tiene valor por defecto y nunca queda nulo en Location, Department, Supplier y Product', async () => {
-    const loc = await locationsService.createLocation({ name: 'Tienda Central' });
-    const dept = await departmentsService.createDepartment({ name: 'Ferretería' });
-    const supp = await suppliersService.createSupplier({ name: 'Tornillos C.A.' });
-    const prod = await productsService.createProduct({ sku: 'TORN-01', name: 'Tornillo 1 pulgada' });
+    const loc = await locationsService.createLocation({
+      name: 'Tienda Central',
+    });
+    const dept = await departmentsService.createDepartment({
+      name: 'Ferretería',
+    });
+    const supp = await suppliersService.createSupplier({
+      name: 'Tornillos C.A.',
+    });
+    const prod = await productsService.createProduct({
+      sku: 'TORN-01',
+      name: 'Tornillo 1 pulgada',
+    });
 
     expect(loc.businessId).toBe('default');
     expect(dept.businessId).toBe('default');
@@ -783,9 +872,15 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // Z. Location.code duplicado dentro del mismo business es rechazado
   it('Z: Rechaza Location con código duplicado en el mismo negocio', async () => {
-    await locationsService.createLocation({ name: 'Tienda Norte', code: 'TIENDA-01' });
+    await locationsService.createLocation({
+      name: 'Tienda Norte',
+      code: 'TIENDA-01',
+    });
     await expect(
-      locationsService.createLocation({ name: 'Tienda Sur', code: 'TIENDA-01' }),
+      locationsService.createLocation({
+        name: 'Tienda Sur',
+        code: 'TIENDA-01',
+      }),
     ).rejects.toThrow(BadRequestException);
   });
 
@@ -851,7 +946,10 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // AE. KIT fuerza tracksInventory=false desde backend aunque request mande true
   it('AE: KIT fuerza tracksInventory = false en backend aunque el request envíe true', async () => {
-    const comp = await productsService.createProduct({ sku: 'C-AE', name: 'Item AE' });
+    const comp = await productsService.createProduct({
+      sku: 'C-AE',
+      name: 'Item AE',
+    });
     const kit = await productsService.createProduct({
       sku: 'KIT-FORCE-NO-TRACK',
       name: 'Kit Invariante Stock',
@@ -879,7 +977,10 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
   // AG. KIT no puede usar otro KIT como componente
   it('AG: Rechaza terminantemente anidar un KIT dentro de otro KIT', async () => {
-    const unitItem = await productsService.createProduct({ sku: 'U1', name: 'Unit 1' });
+    const unitItem = await productsService.createProduct({
+      sku: 'U1',
+      name: 'Unit 1',
+    });
     const subKit = await productsService.createProduct({
       sku: 'SUB-KIT-1',
       name: 'Sub Kit',
@@ -920,19 +1021,21 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
 
     const result = await excelImporter.processRows(rows, 'default');
     expect(result.createdCount).toBe(1);
-    expect(result.pendingStockNotice).toContain('Las existencias/stock no han sido alteradas');
+    expect(result.pendingStockNotice).toContain(
+      'Las existencias/stock no han sido alteradas',
+    );
 
     const created = productsDb.find((p) => p.sku === 'ITEM-WITH-STOCK');
     expect(created).toBeDefined();
     // Verifica que no se escribió ningún stock directo ni tabla de inventario
-    expect((created as any).currentStock).toBeUndefined();
+    expect(created.currentStock).toBeUndefined();
   });
 
   // Helper de disponibilidad de kits
   it('Disponibilidad de Kit: Calcula correctamente min(floor(stock / qty))', () => {
     const components = [
       { quantity: 2, availableStock: 10 }, // 10 / 2 = 5
-      { quantity: 1, availableStock: 3 },  // 3 / 1 = 3
+      { quantity: 1, availableStock: 3 }, // 3 / 1 = 3
     ];
     const available = productsService.calculateKitAvailability(components);
     expect(available).toBe(3);

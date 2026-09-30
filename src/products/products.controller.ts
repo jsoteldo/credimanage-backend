@@ -33,7 +33,12 @@ export class ProductsController {
     @Query('saleType') saleType?: ProductSaleType,
     @Query('active') active?: string,
   ) {
-    return this.productsService.getProducts({ q, departmentId, saleType, active });
+    return this.productsService.getProducts({
+      q,
+      departmentId,
+      saleType,
+      active,
+    });
   }
 
   @Get(':id')
@@ -57,10 +62,7 @@ export class ProductsController {
 
   @Put(':id')
   @RequirePermissions('product.edit')
-  async updateProduct(
-    @Param('id') id: string,
-    @Body() body: UpdateProductDto,
-  ) {
+  async updateProduct(@Param('id') id: string, @Body() body: UpdateProductDto) {
     return this.productsService.updateProduct(id, body);
   }
 
@@ -90,7 +92,9 @@ export class ProductsController {
     if (rows) {
       const parsedRows = typeof rows === 'string' ? JSON.parse(rows) : rows;
       if (!Array.isArray(parsedRows)) {
-        throw new BadRequestException('El formato de las filas debe ser una lista');
+        throw new BadRequestException(
+          'El formato de las filas debe ser una lista',
+        );
       }
       return this.productsService.importProductsRows(parsedRows);
     }

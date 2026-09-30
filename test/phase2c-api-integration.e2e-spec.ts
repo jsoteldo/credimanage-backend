@@ -32,7 +32,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ transform: true, whitelist: true }),
+    );
     await app.init();
 
     prisma = app.get(PrismaService);
@@ -99,7 +101,11 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
   }
 
   // Helper to create purchase via official API
-  async function createPurchaseViaApi(token: string, clientId: string, purchaseData: any) {
+  async function createPurchaseViaApi(
+    token: string,
+    clientId: string,
+    purchaseData: any,
+  ) {
     const res = await request(app.getHttpServer())
       .post(`/crediApi/clients/${clientId}/credit-purchase`)
       .set('Authorization', `Bearer ${token}`)
@@ -109,7 +115,11 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
   }
 
   // Helper to create loan via official API
-  async function createLoanViaApi(token: string, clientId: string, loanData: any) {
+  async function createLoanViaApi(
+    token: string,
+    clientId: string,
+    loanData: any,
+  ) {
     const res = await request(app.getHttpServer())
       .post(`/crediApi/clients/${clientId}/loans`)
       .set('Authorization', `Bearer ${token}`)
@@ -155,7 +165,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     });
 
     // ASSERT INITIAL FIXTURE STATE
-    const initialDbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const initialDbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(initialDbClient.dailyDebtBalance)).toBe(300);
     expect(Number(initialDbClient.bankDebtBalance)).toBe(700);
     expect(Number(initialDbClient.currentBalance)).toBe(1000);
@@ -177,7 +189,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     expect(payRes.body.client.currentBalance).toBe(900);
 
     // 3. DIRECT DB ASSERTIONS
-    const updatedDbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const updatedDbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(updatedDbClient.dailyDebtBalance)).toBe(200);
     expect(Number(updatedDbClient.bankDebtBalance)).toBe(700);
     expect(Number(updatedDbClient.currentBalance)).toBe(900);
@@ -192,8 +206,12 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     expect(paymentRecord.status).toBe('Activo');
 
     // Check loans in DB untouched
-    const dbLoanA = await prisma.loan.findUniqueOrThrow({ where: { id: loanA.id } });
-    const dbLoanB = await prisma.loan.findUniqueOrThrow({ where: { id: loanB.id } });
+    const dbLoanA = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanA.id },
+    });
+    const dbLoanB = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanB.id },
+    });
     expect(Number(dbLoanA.pendingAmount)).toBe(300);
     expect(Number(dbLoanB.pendingAmount)).toBe(400);
   });
@@ -233,7 +251,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     });
 
     // ASSERT INITIAL FIXTURE STATE
-    const initClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const initClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(initClient.dailyDebtBalance)).toBe(200);
     expect(Number(initClient.bankDebtBalance)).toBe(700);
     expect(Number(initClient.currentBalance)).toBe(900);
@@ -258,8 +278,12 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       where: { id: loanA.id },
       include: { installments: { orderBy: { installmentNumber: 'asc' } } },
     });
-    const dbLoanB = await prisma.loan.findUniqueOrThrow({ where: { id: loanB.id } });
-    const dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbLoanB = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanB.id },
+    });
+    const dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
 
     expect(Number(dbLoanA.pendingAmount)).toBe(200);
     expect(Number(dbLoanA.paidAmount)).toBe(100);
@@ -306,7 +330,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     });
 
     // Initial check
-    const initClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const initClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(initClient.dailyDebtBalance)).toBe(200);
     expect(Number(initClient.bankDebtBalance)).toBe(500);
 
@@ -321,7 +347,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       })
       .expect(201);
 
-    const dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClient.dailyDebtBalance)).toBe(0);
     expect(Number(dbClient.bankDebtBalance)).toBe(500); // Bank untouched
     expect(Number(dbClient.currentBalance)).toBe(500);
@@ -365,9 +393,15 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       })
       .expect(201);
 
-    const dbLoanA = await prisma.loan.findUniqueOrThrow({ where: { id: loanA.id } });
-    const dbLoanB = await prisma.loan.findUniqueOrThrow({ where: { id: loanB.id } });
-    const dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbLoanA = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanA.id },
+    });
+    const dbLoanB = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanB.id },
+    });
+    const dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
 
     expect(Number(dbLoanA.pendingAmount)).toBe(0);
     expect(dbLoanA.status).toBe('Pagado');
@@ -423,7 +457,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     expect(payRes.body.client.creditExposure).toBe(600); // max(0, -50) + 600 = 600 exposure
 
     // DB assertions
-    const dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClient.dailyDebtBalance)).toBe(-50);
     expect(Number(dbClient.bankDebtBalance)).toBe(600);
     expect(Number(dbClient.currentBalance)).toBe(550);
@@ -512,7 +548,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       quantity: 1,
     });
 
-    const dbClientAfterPurchase = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbClientAfterPurchase = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClientAfterPurchase.dailyDebtBalance)).toBe(0.01);
     expect(Number(dbClientAfterPurchase.currentBalance)).toBe(0.01);
 
@@ -523,7 +561,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       .send({ amount: 0.01, paymentMethod: 'Efectivo' })
       .expect(201);
 
-    const dbClientAfterPayment = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbClientAfterPayment = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClientAfterPayment.dailyDebtBalance)).toBe(0);
     expect(Number(dbClientAfterPayment.currentBalance)).toBe(0);
   });
@@ -554,7 +594,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     });
 
     // Before annulment
-    const preDbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const preDbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(preDbClient.dailyDebtBalance)).toBe(150);
     expect(Number(preDbClient.bankDebtBalance)).toBe(300);
 
@@ -566,12 +608,16 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       .expect(201);
 
     // DB verification
-    const postDbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const postDbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(postDbClient.dailyDebtBalance)).toBe(0);
     expect(Number(postDbClient.bankDebtBalance)).toBe(300);
     expect(Number(postDbClient.currentBalance)).toBe(300);
 
-    const dbPurchase = await prisma.creditPurchase.findUniqueOrThrow({ where: { id: purchase.id } });
+    const dbPurchase = await prisma.creditPurchase.findUniqueOrThrow({
+      where: { id: purchase.id },
+    });
     expect(dbPurchase.status).toBe('Anulado');
   });
 
@@ -602,7 +648,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
     const dailyPaymentId = payDailyRes.body.payment.id;
 
     // Verify balance is 200
-    let dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    let dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClient.dailyDebtBalance)).toBe(200);
 
     // Admin annuls daily payment
@@ -612,7 +660,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       .send({ reason: 'Pago registrado por error' })
       .expect(201);
 
-    dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClient.dailyDebtBalance)).toBe(300); // Restored!
 
     // 2. Bank payment & annulment
@@ -632,7 +682,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
 
     const loanPaymentId = payLoanRes.body.payment.id;
 
-    let dbLoan = await prisma.loan.findUniqueOrThrow({ where: { id: loan.id } });
+    let dbLoan = await prisma.loan.findUniqueOrThrow({
+      where: { id: loan.id },
+    });
     expect(Number(dbLoan.pendingAmount)).toBe(200);
 
     // Admin annuls bank payment
@@ -680,16 +732,22 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       .send({ amount: 300, isFullPayoff: true, paymentMethod: 'Efectivo' })
       .expect(201);
 
-    const dbLoanA = await prisma.loan.findUniqueOrThrow({ where: { id: loanA.id } });
+    const dbLoanA = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanA.id },
+    });
     expect(Number(dbLoanA.pendingAmount)).toBe(0);
     expect(dbLoanA.status).toBe('Pagado');
 
     // Loan B MUST be completely untouched
-    const dbLoanB = await prisma.loan.findUniqueOrThrow({ where: { id: loanB.id } });
+    const dbLoanB = await prisma.loan.findUniqueOrThrow({
+      where: { id: loanB.id },
+    });
     expect(Number(dbLoanB.pendingAmount)).toBe(700);
     expect(dbLoanB.status).toBe('Activo');
 
-    const dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     expect(Number(dbClient.bankDebtBalance)).toBe(700);
   });
 
@@ -724,7 +782,9 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       .send({ reason: 'Anulación autorizada por Administrador' })
       .expect(201);
 
-    const dbPurchase = await prisma.creditPurchase.findUniqueOrThrow({ where: { id: purchase.id } });
+    const dbPurchase = await prisma.creditPurchase.findUniqueOrThrow({
+      where: { id: purchase.id },
+    });
     expect(dbPurchase.status).toBe('Anulado');
   });
 
@@ -753,13 +813,17 @@ describe('FASE 2C-A: Integración API + PostgreSQL Local Aislado', () => {
       firstDueDate: '2026-10-01',
     });
 
-    const dbClient = await prisma.client.findUniqueOrThrow({ where: { id: client.id } });
+    const dbClient = await prisma.client.findUniqueOrThrow({
+      where: { id: client.id },
+    });
     const daily = Number(dbClient.dailyDebtBalance);
     const bank = Number(dbClient.bankDebtBalance);
     const current = Number(dbClient.currentBalance);
 
     // Invariant: currentBalance === dailyDebtBalance + bankDebtBalance
-    expect(Math.round((daily + bank) * 100) / 100).toBe(Math.round(current * 100) / 100);
-    expect(current).toBe(580.00); // 123.45 + 456.55 = 580.00
+    expect(Math.round((daily + bank) * 100) / 100).toBe(
+      Math.round(current * 100) / 100,
+    );
+    expect(current).toBe(580.0); // 123.45 + 456.55 = 580.00
   });
 });

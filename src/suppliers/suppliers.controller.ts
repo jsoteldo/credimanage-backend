@@ -21,10 +21,7 @@ export class SuppliersController {
 
   @Get()
   @RequirePermissions('supplier.view')
-  async getSuppliers(
-    @Query('active') active?: string,
-    @Query('q') q?: string,
-  ) {
+  async getSuppliers(@Query('active') active?: string, @Query('q') q?: string) {
     return this.suppliersService.getSuppliers({ active, q });
   }
 

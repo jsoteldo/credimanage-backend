@@ -63,8 +63,7 @@ export function toClientDto(c: any): ClientResponseDto | null {
     const hasActiveSnapshot = Array.isArray(c.openingSnapshots)
       ? c.openingSnapshots.some(
           (s: any) =>
-            s.status === 'ACTIVO' &&
-            s.migrationVersion === 'BALANCE_MODEL_V1',
+            s.status === 'ACTIVO' && s.migrationVersion === 'BALANCE_MODEL_V1',
         )
       : false;
 

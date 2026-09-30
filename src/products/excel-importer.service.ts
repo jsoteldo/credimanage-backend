@@ -42,7 +42,9 @@ export class ExcelImporterService {
       }
 
       const worksheet = workbook.Sheets[firstSheetName];
-      const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+      const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, {
+        defval: '',
+      });
 
       return rawData.map((row) => this.normalizeRowKeys(row));
     } catch (err: any) {
@@ -67,7 +69,9 @@ export class ExcelImporterService {
       if (['codigo', 'sku', 'code'].includes(cleanKey)) {
         normalized.codigo = value;
       } else if (
-        ['codigobarras', 'codigodebarras', 'barcode', 'barras'].includes(cleanKey)
+        ['codigobarras', 'codigodebarras', 'barcode', 'barras'].includes(
+          cleanKey,
+        )
       ) {
         normalized.codigobarras = value;
       } else if (
@@ -79,7 +83,9 @@ export class ExcelImporterService {
       ) {
         normalized.preciocosto = value;
       } else if (
-        ['precioventa', 'precio', 'saleprice', 'pvp', 'venta'].includes(cleanKey)
+        ['precioventa', 'precio', 'saleprice', 'pvp', 'venta'].includes(
+          cleanKey,
+        )
       ) {
         normalized.precioventa = value;
       } else if (

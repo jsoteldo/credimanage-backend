@@ -63,12 +63,16 @@ describe('TransactionsService - Créditos con Intereses', () => {
       })),
       findMany: jest.fn(),
       findFirst: jest.fn(({ where }) => ({
-        id: where?.id || (where?.installmentNumber ? `inst-${where.installmentNumber}` : 'inst-1'),
+        id:
+          where?.id ||
+          (where?.installmentNumber
+            ? `inst-${where.installmentNumber}`
+            : 'inst-1'),
         loanId: where?.loanId || 'loan-1',
         installmentNumber: where?.installmentNumber || 1,
         amount: 220,
         paidAmount: 0,
-        dueDate: '2026-09-18',
+        dueDate: '2029-12-31',
       })),
       updateMany: jest.fn(),
     },
@@ -228,7 +232,7 @@ describe('TransactionsService - Créditos con Intereses', () => {
       expect(result).toBeDefined();
     });
 
-    it('debe rechazar la creación del crédito si supera el límite configurado', async () => {
+    it('permite la creación del crédito con intereses aunque supere el límite de compras configurado', async () => {
       const mockClient = {
         id: 'cli-1',
         name: 'Juan Perez',
@@ -238,20 +242,21 @@ describe('TransactionsService - Créditos con Intereses', () => {
       };
       mockPrisma.client.findUnique.mockResolvedValue(mockClient);
 
-      // 800 total crédito + 1000 balance = 1800 > 1500 limit. Rechazado.
-      await expect(
-        service.createLoanCredit(
-          'cli-1',
-          {
-            capital: 800,
-            interestRate: 0,
-            installmentsCount: 1,
-            frequency: 'Mensual',
-            firstDueDate: '2026-09-18',
-          },
-          mockUser,
-        ),
-      ).rejects.toThrow(BadRequestException);
+      // 800 total crédito + 1000 balance = 1800 > 1500 limit. Permitido (límites desacoplados).
+      const result = await service.createLoanCredit(
+        'cli-1',
+        {
+          capital: 800,
+          interestRate: 0,
+          installmentsCount: 1,
+          frequency: 'Mensual',
+          firstDueDate: '2026-09-18',
+        },
+        mockUser,
+      );
+
+      expect(result).toBeDefined();
+      expect(result.loan).toBeDefined();
     });
   });
 

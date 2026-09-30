@@ -24,9 +24,15 @@ const departments_module_1 = require("./departments/departments.module");
 const suppliers_module_1 = require("./suppliers/suppliers.module");
 const products_module_1 = require("./products/products.module");
 const roles_module_1 = require("./roles/roles.module");
+const settings_module_1 = require("./settings/settings.module");
+const frontendDistPath = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist');
 const rootDistPath = (0, path_1.join)(process.cwd(), 'dist');
 const parentDistPath = (0, path_1.join)(process.cwd(), '..', 'dist');
-const distPath = (0, fs_1.existsSync)(rootDistPath) ? rootDistPath : parentDistPath;
+const distPath = (0, fs_1.existsSync)((0, path_1.join)(frontendDistPath, 'index.html'))
+    ? frontendDistPath
+    : (0, fs_1.existsSync)((0, path_1.join)(parentDistPath, 'index.html'))
+        ? parentDistPath
+        : rootDistPath;
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -38,7 +44,7 @@ exports.AppModule = AppModule = __decorate([
             }),
             serve_static_1.ServeStaticModule.forRoot({
                 rootPath: distPath,
-                exclude: ['/crediApi*'],
+                exclude: ['/crediApi{/*path}'],
             }),
             prisma_module_1.PrismaModule,
             audit_module_1.AuditModule,
@@ -52,6 +58,7 @@ exports.AppModule = AppModule = __decorate([
             suppliers_module_1.SuppliersModule,
             products_module_1.ProductsModule,
             roles_module_1.RolesModule,
+            settings_module_1.SettingsModule,
         ],
     })
 ], AppModule);

@@ -78,28 +78,33 @@ export function toProductDto(product: any): ProductResponseDto {
     departmentId: product.departmentId || null,
     departmentName: product.department?.name || null,
     saleType: product.saleType,
-    costPrice: product.costPrice instanceof Prisma.Decimal
-      ? product.costPrice.toNumber()
-      : Number(product.costPrice || 0),
-    salePrice: product.salePrice instanceof Prisma.Decimal
-      ? product.salePrice.toNumber()
-      : Number(product.salePrice || 0),
-    wholesalePrice: product.wholesalePrice instanceof Prisma.Decimal
-      ? product.wholesalePrice.toNumber()
-      : Number(product.wholesalePrice || 0),
+    costPrice:
+      product.costPrice instanceof Prisma.Decimal
+        ? product.costPrice.toNumber()
+        : Number(product.costPrice || 0),
+    salePrice:
+      product.salePrice instanceof Prisma.Decimal
+        ? product.salePrice.toNumber()
+        : Number(product.salePrice || 0),
+    wholesalePrice:
+      product.wholesalePrice instanceof Prisma.Decimal
+        ? product.wholesalePrice.toNumber()
+        : Number(product.wholesalePrice || 0),
     tracksInventory: product.tracksInventory,
-    defaultMinStock: product.defaultMinStock instanceof Prisma.Decimal
-      ? product.defaultMinStock.toNumber()
-      : Number(product.defaultMinStock || 0),
+    defaultMinStock:
+      product.defaultMinStock instanceof Prisma.Decimal
+        ? product.defaultMinStock.toNumber()
+        : Number(product.defaultMinStock || 0),
     active: product.active,
     components: product.kitComponents?.map((kc: any) => ({
       id: kc.id,
       componentProductId: kc.componentProductId,
       componentSku: kc.componentProduct?.sku || '',
       componentName: kc.componentProduct?.name || '',
-      quantity: kc.quantity instanceof Prisma.Decimal
-        ? kc.quantity.toNumber()
-        : Number(kc.quantity || 0),
+      quantity:
+        kc.quantity instanceof Prisma.Decimal
+          ? kc.quantity.toNumber()
+          : Number(kc.quantity || 0),
       saleType: kc.componentProduct?.saleType || 'UNIT',
     })),
     createdAt: product.createdAt,

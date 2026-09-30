@@ -88,7 +88,10 @@ export class ProductsService {
     return list.map((p) => toProductDto(p));
   }
 
-  async getProductById(id: string, businessId = 'default'): Promise<ProductResponseDto> {
+  async getProductById(
+    id: string,
+    businessId = 'default',
+  ): Promise<ProductResponseDto> {
     const product = await this.prisma.product.findFirst({
       where: { id, businessId },
       include: {
@@ -160,12 +163,17 @@ export class ProductsService {
     const isKit = saleType === ProductSaleType.KIT;
 
     // Backend Invariant: KITS force tracksInventory = false and defaultMinStock = 0
-    const tracksInventory = isKit ? false : (data.tracksInventory !== false);
-    const defaultMinStock = isKit ? 0 : Math.max(0, Number(data.defaultMinStock) || 0);
+    const tracksInventory = isKit ? false : data.tracksInventory !== false;
+    const defaultMinStock = isKit
+      ? 0
+      : Math.max(0, Number(data.defaultMinStock) || 0);
 
     const costPrice = Math.max(0, Number(data.costPrice) || 0);
     const salePrice = Math.max(0, Number(data.salePrice) || 0);
-    const wholesalePrice = Math.max(0, Number(data.wholesalePrice) || salePrice);
+    const wholesalePrice = Math.max(
+      0,
+      Number(data.wholesalePrice) || salePrice,
+    );
 
     // Validate Kit components
     if (isKit) {
@@ -301,7 +309,9 @@ export class ProductsService {
           where: { id: data.departmentId, businessId },
         });
         if (!dept) {
-          throw new BadRequestException('El departamento especificado no existe');
+          throw new BadRequestException(
+            'El departamento especificado no existe',
+          );
         }
       }
       updateData.departmentId = data.departmentId || null;
@@ -483,7 +493,9 @@ export class ProductsService {
       }
 
       if (currentKitId && comp.componentProductId === currentKitId) {
-        throw new BadRequestException('Un producto KIT no puede contenerse a sí mismo');
+        throw new BadRequestException(
+          'Un producto KIT no puede contenerse a sí mismo',
+        );
       }
 
       if (seen.has(comp.componentProductId)) {

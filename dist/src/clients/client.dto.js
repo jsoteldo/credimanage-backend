@@ -35,8 +35,7 @@ function toClientDto(c) {
     }
     if (c.balanceOrigin === 'MIGRATED_BASELINE') {
         const hasActiveSnapshot = Array.isArray(c.openingSnapshots)
-            ? c.openingSnapshots.some((s) => s.status === 'ACTIVO' &&
-                s.migrationVersion === 'BALANCE_MODEL_V1')
+            ? c.openingSnapshots.some((s) => s.status === 'ACTIVO' && s.migrationVersion === 'BALANCE_MODEL_V1')
             : false;
         if (!hasActiveSnapshot) {
             throw new common_1.InternalServerErrorException(`BALANCE_LEDGER_INTEGRITY_ERROR: Migrated client ${c.clientNumber || c.id} lacks required active BalanceOpeningSnapshot under BALANCE_MODEL_V1`);

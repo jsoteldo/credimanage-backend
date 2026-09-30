@@ -41,6 +41,11 @@ export class TransactionsController {
     return this.transactionsService.getClientLoans(id);
   }
 
+  @Get(['crediApi/loans', 'api/loans'])
+  async getAllLoans() {
+    return this.transactionsService.getAllLoans();
+  }
+
   @Get('crediApi/loans/:id')
   async getLoanById(@Param('id') id: string) {
     return this.transactionsService.getLoanById(id);
@@ -116,11 +121,7 @@ export class TransactionsController {
     @Body() body: any,
     @Req() req: any,
   ) {
-    return this.transactionsService.registerLoanPayment(
-      loanId,
-      body,
-      req.user,
-    );
+    return this.transactionsService.registerLoanPayment(loanId, body, req.user);
   }
 
   @Roles('Administrador')
@@ -134,7 +135,10 @@ export class TransactionsController {
   }
 
   @Roles('Administrador')
-  @Post(['crediApi/payments/:id/resolve-ambiguous-reversal', 'api/payments/:id/resolve-ambiguous-reversal'])
+  @Post([
+    'crediApi/payments/:id/resolve-ambiguous-reversal',
+    'api/payments/:id/resolve-ambiguous-reversal',
+  ])
   async resolveAmbiguousReversal(
     @Param('id') id: string,
     @Body() body: any,

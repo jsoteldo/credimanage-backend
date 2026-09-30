@@ -26,20 +26,7 @@ export declare class TransactionsController {
     }>;
     createLoanCredit(id: string, body: any, req: any): Promise<{
         loan: {
-            installments: {
-                paidAmount: number | undefined;
-                paidDate: string | undefined;
-                id: string;
-                createdAt: Date;
-                updatedAt: Date;
-                status: import("@prisma/client").$Enums.InstallmentStatus;
-                amount: number;
-                loanId: string;
-                capital: number;
-                installmentNumber: number;
-                dueDate: string;
-                interest: number;
-            }[];
+            installments: any;
             id: string;
             createdAt: Date;
             updatedAt: Date;
@@ -130,6 +117,54 @@ export declare class TransactionsController {
         pendingAmount: number;
         paidInstallmentsCount: number;
     })[]>;
+    getAllLoans(): Promise<{
+        clientName: string;
+        clientNumber: string;
+        client: {
+            id: string;
+            name: string;
+            clientNumber: string;
+        };
+        installments: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            status: import("@prisma/client").$Enums.InstallmentStatus;
+            amount: number;
+            loanId: string;
+            capital: number;
+            paidAmount: number;
+            installmentNumber: number;
+            dueDate: string;
+            interest: number;
+            paidDate: Date | null;
+        }[];
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        product: string | null;
+        code: string;
+        status: import("@prisma/client").$Enums.LoanStatus;
+        clientId: string;
+        date: Date;
+        ticketNumber: string | null;
+        registeredBy: string;
+        annulledAt: Date | null;
+        annulledBy: string | null;
+        annulmentReason: string | null;
+        notes: string | null;
+        capital: number;
+        interestRate: number;
+        interestAmount: number;
+        totalAmount: number;
+        installmentsCount: number;
+        installmentAmount: number;
+        frequency: import("@prisma/client").$Enums.PaymentPeriod;
+        firstDueDate: string;
+        paidAmount: number;
+        pendingAmount: number;
+        paidInstallmentsCount: number;
+    }[]>;
     getLoanById(id: string): Promise<{
         installments: {
             id: string;

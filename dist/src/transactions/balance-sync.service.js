@@ -52,7 +52,8 @@ function validatePaymentAllocations(paymentAmount, targetType, allocations, loan
             if (validClientLoanIds && !validClientLoanIds.includes(alloc.loanId)) {
                 throw new common_1.BadRequestException(`BALANCE_LEDGER_INTEGRITY_ERROR: El préstamo (${alloc.loanId}) no pertenece al cliente del pago.`);
             }
-            if (alloc.installmentNumber !== undefined && alloc.installmentNumber !== null) {
+            if (alloc.installmentNumber !== undefined &&
+                alloc.installmentNumber !== null) {
                 const instNum = Number(alloc.installmentNumber);
                 if (isNaN(instNum) || instNum <= 0) {
                     throw new common_1.BadRequestException(`BALANCE_LEDGER_INTEGRITY_ERROR: installmentNumber inválido: ${alloc.installmentNumber}`);
@@ -95,11 +96,15 @@ let BalanceSyncService = class BalanceSyncService {
         if (!client) {
             throw new common_1.NotFoundException(`Cliente ${clientId} no encontrado para sincronización de saldos`);
         }
-        const snapshot = client.openingSnapshots && client.openingSnapshots.length > 0 ? client.openingSnapshots[0] : null;
+        const snapshot = client.openingSnapshots && client.openingSnapshots.length > 0
+            ? client.openingSnapshots[0]
+            : null;
         let baseDailyDebt = new client_1.Prisma.Decimal(0);
         let baseBankDebt = new client_1.Prisma.Decimal(0);
         const hasSnapshot = snapshot !== null;
-        const cutOffDate = hasSnapshot ? new Date(snapshot.cutOffDate) : null;
+        const cutOffDate = hasSnapshot
+            ? new Date(snapshot.cutOffDate)
+            : null;
         if (hasSnapshot) {
             baseDailyDebt = new client_1.Prisma.Decimal(snapshot.dailyDebtOpeningBalance.toString());
             baseBankDebt = new client_1.Prisma.Decimal(snapshot.bankDebtOpeningBalance.toString());
@@ -110,8 +115,13 @@ let BalanceSyncService = class BalanceSyncService {
         let subsequentChargesSum = new client_1.Prisma.Decimal(0);
         for (const p of purchases) {
             const isBaseline = p.isBaselineMovement === true;
-            const isPost = !isBaseline && (!hasSnapshot || (p.createdAt !== null && new Date(p.createdAt) > cutOffDate));
-            if (isPost && p.status === 'Activo' && !p.loanId && p.debtType !== 'credit') {
+            const isPost = !isBaseline &&
+                (!hasSnapshot ||
+                    (p.createdAt !== null && new Date(p.createdAt) > cutOffDate));
+            if (isPost &&
+                p.status === 'Activo' &&
+                !p.loanId &&
+                p.debtType !== 'credit') {
                 subsequentChargesSum = subsequentChargesSum.plus(new client_1.Prisma.Decimal(p.amount.toString()));
             }
         }
@@ -121,7 +131,9 @@ let BalanceSyncService = class BalanceSyncService {
         let subsequentDailyPaymentsSum = new client_1.Prisma.Decimal(0);
         for (const pay of payments) {
             const isBaseline = pay.isBaselineMovement === true;
-            const isPost = !isBaseline && (!hasSnapshot || (pay.createdAt !== null && new Date(pay.createdAt) > cutOffDate));
+            const isPost = !isBaseline &&
+                (!hasSnapshot ||
+                    (pay.createdAt !== null && new Date(pay.createdAt) > cutOffDate));
             if (!isPost)
                 continue;
             if (pay.status !== 'Activo')
@@ -129,8 +141,15 @@ let BalanceSyncService = class BalanceSyncService {
             if (pay.targetType === 'legacyUnknown') {
                 throw new common_1.BadRequestException(`BALANCE_LEDGER_INTEGRITY_ERROR: Pago ${pay.id} clasificado como legacyUnknown en ledger post-snapshot.`);
             }
-            const hasAllocations = pay.allocations && Array.isArray(pay.allocations) && pay.allocations.length > 0;
-            const validTargetTypes = ['dailyDebt', 'bankLoan', 'legacyMixed', 'legacyDirect'];
+            const hasAllocations = pay.allocations &&
+                Array.isArray(pay.allocations) &&
+                pay.allocations.length > 0;
+            const validTargetTypes = [
+                'dailyDebt',
+                'bankLoan',
+                'legacyMixed',
+                'legacyDirect',
+            ];
             const hasValidTarget = pay.targetType && validTargetTypes.includes(pay.targetType);
             if (!hasAllocations && !hasValidTarget) {
                 throw new common_1.BadRequestException(`BALANCE_LEDGER_INTEGRITY_ERROR: Pago ${pay.id} post-snapshot sin targetType ni allocations válidas.`);
@@ -144,7 +163,8 @@ let BalanceSyncService = class BalanceSyncService {
                     }
                 }
             }
-            else if (pay.targetType === 'dailyDebt' || pay.targetType === 'legacyDirect') {
+            else if (pay.targetType === 'dailyDebt' ||
+                pay.targetType === 'legacyDirect') {
                 subsequentDailyPaymentsSum = subsequentDailyPaymentsSum.plus(new client_1.Prisma.Decimal(pay.amount.toString()));
             }
         }
@@ -155,7 +175,8 @@ let BalanceSyncService = class BalanceSyncService {
         for (const adj of adjustments) {
             if (adj.status !== 'ACTIVO')
                 continue;
-            const isPost = !hasSnapshot || (adj.createdAt !== null && new Date(adj.createdAt) > cutOffDate);
+            const isPost = !hasSnapshot ||
+                (adj.createdAt !== null && new Date(adj.createdAt) > cutOffDate);
             if (!isPost)
                 continue;
             if (adj.type === 'DAILY_PAYMENT_REVERSAL') {
@@ -195,7 +216,9 @@ let BalanceSyncService = class BalanceSyncService {
         const availableCredit = creditLimitDecimal.greaterThan(new client_1.Prisma.Decimal(0))
             ? client_1.Prisma.Decimal.max(new client_1.Prisma.Decimal(0), creditLimitDecimal.minus(creditExposureDecimal)).toNumber()
             : 'Sin límite';
-        if (!dailyDebtBalanceDecimal.plus(bankDebtBalanceDecimal).equals(currentBalanceDecimal)) {
+        if (!dailyDebtBalanceDecimal
+            .plus(bankDebtBalanceDecimal)
+            .equals(currentBalanceDecimal)) {
             throw new common_1.BadRequestException(`BALANCE_LEDGER_INTEGRITY_ERROR: Violación de invariante: dailyDebt (${dailyDebtBalanceDecimal.toFixed(2)}) + bankDebt (${bankDebtBalanceDecimal.toFixed(2)}) != currentBalance (${currentBalanceDecimal.toFixed(2)})`);
         }
         if (bankDebtBalanceDecimal.lessThan(new client_1.Prisma.Decimal(0))) {

@@ -15,11 +15,17 @@ import { DepartmentsModule } from './departments/departments.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { ProductsModule } from './products/products.module';
 import { RolesModule } from './roles/roles.module';
+import { SettingsModule } from './settings/settings.module';
 
 // Dynamically resolve React dist path
+const frontendDistPath = join(process.cwd(), '..', 'frontend', 'dist');
 const rootDistPath = join(process.cwd(), 'dist');
 const parentDistPath = join(process.cwd(), '..', 'dist');
-const distPath = existsSync(rootDistPath) ? rootDistPath : parentDistPath;
+const distPath = existsSync(join(frontendDistPath, 'index.html'))
+  ? frontendDistPath
+  : existsSync(join(parentDistPath, 'index.html'))
+    ? parentDistPath
+    : rootDistPath;
 
 @Module({
   imports: [
@@ -28,7 +34,7 @@ const distPath = existsSync(rootDistPath) ? rootDistPath : parentDistPath;
     }),
     ServeStaticModule.forRoot({
       rootPath: distPath,
-      exclude: ['/crediApi*'],
+      exclude: ['/crediApi{/*path}'],
     }),
     PrismaModule,
     AuditModule,
@@ -42,6 +48,7 @@ const distPath = existsSync(rootDistPath) ? rootDistPath : parentDistPath;
     SuppliersModule,
     ProductsModule,
     RolesModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

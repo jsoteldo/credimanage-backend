@@ -32,6 +32,9 @@ let TransactionsController = class TransactionsController {
     async getClientLoans(id) {
         return this.transactionsService.getClientLoans(id);
     }
+    async getAllLoans() {
+        return this.transactionsService.getAllLoans();
+    }
     async getLoanById(id) {
         return this.transactionsService.getLoanById(id);
     }
@@ -108,6 +111,12 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], TransactionsController.prototype, "getClientLoans", null);
+__decorate([
+    (0, common_1.Get)(['crediApi/loans', 'api/loans']),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], TransactionsController.prototype, "getAllLoans", null);
 __decorate([
     (0, common_1.Get)('crediApi/loans/:id'),
     __param(0, (0, common_1.Param)('id')),
@@ -200,7 +209,10 @@ __decorate([
 ], TransactionsController.prototype, "annulPurchase", null);
 __decorate([
     (0, roles_decorator_1.Roles)('Administrador'),
-    (0, common_1.Post)(['crediApi/payments/:id/resolve-ambiguous-reversal', 'api/payments/:id/resolve-ambiguous-reversal']),
+    (0, common_1.Post)([
+        'crediApi/payments/:id/resolve-ambiguous-reversal',
+        'api/payments/:id/resolve-ambiguous-reversal',
+    ]),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.Req)()),

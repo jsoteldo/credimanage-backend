@@ -24,11 +24,13 @@ export async function ensureE2eDatabase(): Promise<void> {
   try {
     const res = await pgClient.query(
       `SELECT 1 FROM pg_database WHERE datname = $1`,
-      [dbName]
+      [dbName],
     );
 
     if (res.rowCount === 0) {
-      console.log(`[E2E SETUP] Database "${dbName}" does not exist. Creating...`);
+      console.log(
+        `[E2E SETUP] Database "${dbName}" does not exist. Creating...`,
+      );
       await pgClient.query(`CREATE DATABASE "${dbName}";`);
       console.log(`[E2E SETUP] Database "${dbName}" created successfully.`);
     } else {
@@ -78,7 +80,9 @@ export async function ensureE2eDatabase(): Promise<void> {
     await schemaClient.end();
   }
 
-  console.log(`[E2E SETUP] Migrations and schema successfully deployed to ${dbName}.`);
+  console.log(
+    `[E2E SETUP] Migrations and schema successfully deployed to ${dbName}.`,
+  );
 }
 
 export async function cleanE2eDatabase(): Promise<void> {

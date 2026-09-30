@@ -109,6 +109,8 @@ let AuthService = class AuthService {
                 email: user.email,
                 role: user.role,
                 avatar: user.avatar,
+                active: user.active,
+                approved: user.approved,
                 permissions,
             },
         };

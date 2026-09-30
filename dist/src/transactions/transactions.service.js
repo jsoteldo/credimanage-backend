@@ -78,17 +78,13 @@ let TransactionsService = class TransactionsService {
             if (totalAmount <= 0) {
                 throw new common_1.BadRequestException('El importe total de la compra debe ser mayor a S/ 0.00');
             }
-            const dailyDebt = client.dailyDebtBalance
+            const currentDailyDebt = client.dailyDebtBalance != null
                 ? Math.max(0, Number(client.dailyDebtBalance))
                 : Math.max(0, client.currentBalance);
-            const bankDebt = client.bankDebtBalance
-                ? Math.max(0, Number(client.bankDebtBalance))
-                : 0;
-            const currentExposure = dailyDebt + bankDebt;
             if (client.creditLimit > 0) {
-                const projectedExposure = currentExposure + totalAmount;
-                if (projectedExposure > client.creditLimit) {
-                    throw new common_1.BadRequestException(`Límite de crédito excedido. Límite actual: S/ ${client.creditLimit.toFixed(2)}, Exposición actual: S/ ${currentExposure.toFixed(2)}, Exceso: S/ ${(projectedExposure - client.creditLimit).toFixed(2)}`);
+                const projectedDailyDebt = currentDailyDebt + totalAmount;
+                if (projectedDailyDebt > client.creditLimit) {
+                    throw new common_1.BadRequestException(`Límite de crédito de compras excedido. Límite: S/ ${client.creditLimit.toFixed(2)}, Deuda actual de compras: S/ ${currentDailyDebt.toFixed(2)}, Exceso: S/ ${(projectedDailyDebt - client.creditLimit).toFixed(2)}`);
                 }
             }
             let purchaseDate = new Date();
@@ -121,7 +117,9 @@ let TransactionsService = class TransactionsService {
                 },
             });
             const synced = await this.balanceSyncService.syncClientBalances(clientId, tx);
-            const updatedClient = await tx.client.findUnique({ where: { id: clientId } });
+            const updatedClient = await tx.client.findUnique({
+                where: { id: clientId },
+            });
             await this.auditService.logAudit(user.id, user.name, user.role, 'COMPRA_CREDITO', `Compra a crédito registrada por S/ ${totalAmount.toFixed(2)} (${newPurchase.product}) para ${client.name}. Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`, newPurchase.id);
             return {
                 purchase: newPurchase,
@@ -161,8 +159,12 @@ let TransactionsService = class TransactionsService {
                 data: { resultingBalance: synced.currentBalance },
             });
             await this.auditService.logAudit(adminUser.id, adminUser.name, adminUser.role, 'APROBAR_ABONO', `Abono de deuda corriente de S/ ${payAmount.toFixed(2)} aprobado para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`, payment.id);
-            const updatedClient = await tx.client.findUnique({ where: { id: clientId } });
-            const updatedPayment = await tx.payment.findUnique({ where: { id: paymentId } });
+            const updatedClient = await tx.client.findUnique({
+                where: { id: clientId },
+            });
+            const updatedPayment = await tx.payment.findUnique({
+                where: { id: paymentId },
+            });
             return { payment: updatedPayment, client: updatedClient };
         }
         const bankAllocations = (payment.allocations || []).filter((a) => (a.targetType || a.type) === 'bankLoan');
@@ -616,7 +618,9 @@ let TransactionsService = class TransactionsService {
                     rem = Math.round((rem - toPay) * 100) / 100;
                 }
             }
-            (0, balance_sync_service_1.validatePaymentAllocations)(payAmount, 'bankLoan', allocations, loan.id, [loan.id]);
+            (0, balance_sync_service_1.validatePaymentAllocations)(payAmount, 'bankLoan', allocations, loan.id, [
+                loan.id,
+            ]);
             const isApproved = user.role === 'Administrador';
             const newPayment = await tx.payment.create({
                 data: {
@@ -969,12 +973,6 @@ let TransactionsService = class TransactionsService {
             const calculatedInterest = Math.round(((cap * rate) / 100 + Number.EPSILON) * 100) / 100;
             const calculatedTotal = Math.round((cap + calculatedInterest + Number.EPSILON) * 100) / 100;
             const calculatedInstallment = Math.round((calculatedTotal / count + Number.EPSILON) * 100) / 100;
-            if (client.creditLimit > 0) {
-                const projectedBalance = client.currentBalance + calculatedTotal;
-                if (projectedBalance > client.creditLimit) {
-                    throw new common_1.BadRequestException(`El crédito solicitado supera el límite de crédito del cliente. Límite: S/ ${client.creditLimit.toFixed(2)}, Saldo actual: S/ ${client.currentBalance.toFixed(2)}, Total del nuevo crédito: S/ ${calculatedTotal.toFixed(2)}, Exceso: S/ ${(projectedBalance - client.creditLimit).toFixed(2)}`);
-                }
-            }
             const baseCap = Math.round((cap / count + Number.EPSILON) * 100) / 100;
             const baseInt = Math.round((calculatedInterest / count + Number.EPSILON) * 100) / 100;
             const todayStr = new Date().toISOString().split('T')[0];
@@ -1072,13 +1070,22 @@ let TransactionsService = class TransactionsService {
                 where: { id: clientId },
             });
             await this.auditService.logAudit(user.id, user.name, user.role, 'REGISTRO_CREDITO_INTERES', `Crédito con intereses otorgado (${loanCode}) por S/ ${calculatedTotal.toFixed(2)} para ${client.name}. Saldo resultante: S/ ${updatedClient?.currentBalance != null ? updatedClient.currentBalance.toFixed(2) : '0.00'}`, newLoan.id);
+            const rawInstallments = Array.isArray(newLoan.installments)
+                ? newLoan.installments
+                : Array.isArray(newLoan.installments?.create)
+                    ? newLoan.installments.create
+                    : [];
             return {
                 loan: {
                     ...newLoan,
-                    installments: newLoan.installments.map((inst) => ({
+                    installments: rawInstallments.map((inst) => ({
                         ...inst,
                         paidAmount: inst.paidAmount || undefined,
-                        paidDate: inst.paidDate ? inst.paidDate.toISOString() : undefined,
+                        paidDate: inst.paidDate
+                            ? typeof inst.paidDate.toISOString === 'function'
+                                ? inst.paidDate.toISOString()
+                                : inst.paidDate
+                            : undefined,
                     })),
                 },
                 purchase: purchaseMovement,
@@ -1086,6 +1093,28 @@ let TransactionsService = class TransactionsService {
                 message: 'Crédito con intereses registrado con éxito',
             };
         });
+    }
+    async getAllLoans() {
+        const list = await this.prisma.loan.findMany({
+            include: {
+                client: {
+                    select: {
+                        id: true,
+                        name: true,
+                        clientNumber: true,
+                    },
+                },
+                installments: {
+                    orderBy: { installmentNumber: 'asc' },
+                },
+            },
+            orderBy: { date: 'desc' },
+        });
+        return list.map((l) => ({
+            ...l,
+            clientName: l.client?.name || '',
+            clientNumber: l.client?.clientNumber || '',
+        }));
     }
     async getClientLoans(clientId) {
         const list = await this.prisma.loan.findMany({
@@ -1259,8 +1288,7 @@ let TransactionsService = class TransactionsService {
                         sourceId: payment.id,
                         amount: Number(b.amount),
                         loanId: b.loanId,
-                        reason: data.reason ||
-                            'Resolución administrativa de reversión bancaria',
+                        reason: data.reason || 'Resolución administrativa de reversión bancaria',
                         createdBy: user.name,
                         status: 'ACTIVO',
                     },

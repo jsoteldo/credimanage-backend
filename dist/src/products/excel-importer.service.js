@@ -60,7 +60,9 @@ let ExcelImporterService = class ExcelImporterService {
                 throw new common_1.BadRequestException('El archivo de Excel no contiene hojas');
             }
             const worksheet = workbook.Sheets[firstSheetName];
-            const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+            const rawData = XLSX.utils.sheet_to_json(worksheet, {
+                defval: '',
+            });
             return rawData.map((row) => this.normalizeRowKeys(row));
         }
         catch (err) {

@@ -6,8 +6,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { BalanceSyncService, validatePaymentAllocations } from './balance-sync.service';
-import { PaymentMethod, OperationStatus, PaymentPeriod, Prisma } from '@prisma/client';
+import {
+  BalanceSyncService,
+  validatePaymentAllocations,
+} from './balance-sync.service';
+import {
+  PaymentMethod,
+  OperationStatus,
+  PaymentPeriod,
+  Prisma,
+} from '@prisma/client';
 import { toClientDto } from '../clients/client.dto';
 
 @Injectable()
@@ -82,20 +90,17 @@ export class TransactionsService {
         );
       }
 
-      // Credit limit check using credit exposure
-      const dailyDebt = client.dailyDebtBalance
-        ? Math.max(0, Number(client.dailyDebtBalance))
-        : Math.max(0, client.currentBalance);
-      const bankDebt = client.bankDebtBalance
-        ? Math.max(0, Number(client.bankDebtBalance))
-        : 0;
-      const currentExposure = dailyDebt + bankDebt;
+      // Credit limit check for purchases (isolated from bank loans)
+      const currentDailyDebt =
+        client.dailyDebtBalance != null
+          ? Math.max(0, Number(client.dailyDebtBalance))
+          : Math.max(0, client.currentBalance);
 
       if (client.creditLimit > 0) {
-        const projectedExposure = currentExposure + totalAmount;
-        if (projectedExposure > client.creditLimit) {
+        const projectedDailyDebt = currentDailyDebt + totalAmount;
+        if (projectedDailyDebt > client.creditLimit) {
           throw new BadRequestException(
-            `Límite de crédito excedido. Límite actual: S/ ${client.creditLimit.toFixed(2)}, Exposición actual: S/ ${currentExposure.toFixed(2)}, Exceso: S/ ${(projectedExposure - client.creditLimit).toFixed(2)}`,
+            `Límite de crédito de compras excedido. Límite: S/ ${client.creditLimit.toFixed(2)}, Deuda actual de compras: S/ ${currentDailyDebt.toFixed(2)}, Exceso: S/ ${(projectedDailyDebt - client.creditLimit).toFixed(2)}`,
           );
         }
       }
@@ -130,8 +135,13 @@ export class TransactionsService {
         },
       });
 
-      const synced = await this.balanceSyncService.syncClientBalances(clientId, tx);
-      const updatedClient = await tx.client.findUnique({ where: { id: clientId } });
+      const synced = await this.balanceSyncService.syncClientBalances(
+        clientId,
+        tx,
+      );
+      const updatedClient = await tx.client.findUnique({
+        where: { id: clientId },
+      });
 
       await this.auditService.logAudit(
         user.id,
@@ -181,7 +191,10 @@ export class TransactionsService {
         },
       });
 
-      const synced = await this.balanceSyncService.syncClientBalances(clientId, tx);
+      const synced = await this.balanceSyncService.syncClientBalances(
+        clientId,
+        tx,
+      );
       await tx.payment.update({
         where: { id: paymentId },
         data: { resultingBalance: synced.currentBalance },
@@ -196,8 +209,12 @@ export class TransactionsService {
         payment.id,
       );
 
-      const updatedClient = await tx.client.findUnique({ where: { id: clientId } });
-      const updatedPayment = await tx.payment.findUnique({ where: { id: paymentId } });
+      const updatedClient = await tx.client.findUnique({
+        where: { id: clientId },
+      });
+      const updatedPayment = await tx.payment.findUnique({
+        where: { id: paymentId },
+      });
       return { payment: updatedPayment, client: updatedClient };
     }
 
@@ -784,13 +801,9 @@ export class TransactionsService {
         }
       }
 
-      validatePaymentAllocations(
-        payAmount,
-        'bankLoan',
-        allocations,
+      validatePaymentAllocations(payAmount, 'bankLoan', allocations, loan.id, [
         loan.id,
-        [loan.id],
-      );
+      ]);
 
       const isApproved = user.role === 'Administrador';
 
@@ -1116,9 +1129,9 @@ export class TransactionsService {
           );
         }
       } else {
-        const bankAllocations = (
-          (payment.allocations as any[]) || []
-        ).filter((a) => (a.targetType || a.type) === 'bankLoan');
+        const bankAllocations = ((payment.allocations as any[]) || []).filter(
+          (a) => (a.targetType || a.type) === 'bankLoan',
+        );
 
         if (bankAllocations.length > 0) {
           for (const alloc of bankAllocations) {
@@ -1268,16 +1281,6 @@ export class TransactionsService {
       const calculatedInstallment =
         Math.round((calculatedTotal / count + Number.EPSILON) * 100) / 100;
 
-      // Credit limit validation (currentBalance + calculatedTotal <= creditLimit)
-      if (client.creditLimit > 0) {
-        const projectedBalance = client.currentBalance + calculatedTotal;
-        if (projectedBalance > client.creditLimit) {
-          throw new BadRequestException(
-            `El crédito solicitado supera el límite de crédito del cliente. Límite: S/ ${client.creditLimit.toFixed(2)}, Saldo actual: S/ ${client.currentBalance.toFixed(2)}, Total del nuevo crédito: S/ ${calculatedTotal.toFixed(2)}, Exceso: S/ ${(projectedBalance - client.creditLimit).toFixed(2)}`,
-          );
-        }
-      }
-
       // Installments scheduling
       const baseCap = Math.round((cap / count + Number.EPSILON) * 100) / 100;
       const baseInt =
@@ -1399,13 +1402,23 @@ export class TransactionsService {
         newLoan.id,
       );
 
+      const rawInstallments = Array.isArray(newLoan.installments)
+        ? newLoan.installments
+        : Array.isArray((newLoan.installments as any)?.create)
+          ? (newLoan.installments as any).create
+          : [];
+
       return {
         loan: {
           ...newLoan,
-          installments: newLoan.installments.map((inst) => ({
+          installments: rawInstallments.map((inst: any) => ({
             ...inst,
             paidAmount: inst.paidAmount || undefined,
-            paidDate: inst.paidDate ? inst.paidDate.toISOString() : undefined,
+            paidDate: inst.paidDate
+              ? typeof inst.paidDate.toISOString === 'function'
+                ? inst.paidDate.toISOString()
+                : inst.paidDate
+              : undefined,
           })),
         },
         purchase: purchaseMovement,
@@ -1413,6 +1426,30 @@ export class TransactionsService {
         message: 'Crédito con intereses registrado con éxito',
       };
     });
+  }
+
+  async getAllLoans() {
+    const list = await this.prisma.loan.findMany({
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            clientNumber: true,
+          },
+        },
+        installments: {
+          orderBy: { installmentNumber: 'asc' },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    return list.map((l) => ({
+      ...l,
+      clientName: l.client?.name || '',
+      clientNumber: l.client?.clientNumber || '',
+    }));
   }
 
   async getClientLoans(clientId: string) {
@@ -1643,8 +1680,7 @@ export class TransactionsService {
             amount: Number(b.amount),
             loanId: b.loanId,
             reason:
-              data.reason ||
-              'Resolución administrativa de reversión bancaria',
+              data.reason || 'Resolución administrativa de reversión bancaria',
             createdBy: user.name,
             status: 'ACTIVO',
           },
@@ -1683,7 +1719,8 @@ export class TransactionsService {
         const totalPaid = allInst.reduce((s, i) => s + i.paidAmount, 0);
         const loan = await tx.loan.findUnique({ where: { id: b.loanId } });
         if (loan) {
-          const pending = Math.round((loan.totalAmount - totalPaid) * 100) / 100;
+          const pending =
+            Math.round((loan.totalAmount - totalPaid) * 100) / 100;
           const paidCount = allInst.filter((i) => i.status === 'Pagada').length;
           let newStatus: 'Activo' | 'Pagado' | 'Vencido' | 'Anulado' = 'Activo';
           if (pending <= 0.01) {

@@ -63,7 +63,9 @@ export class DepartmentsService {
     const businessId = data.businessId || 'default';
     const name = data.name?.trim();
     if (!name) {
-      throw new BadRequestException('El nombre del departamento es obligatorio');
+      throw new BadRequestException(
+        'El nombre del departamento es obligatorio',
+      );
     }
 
     const existing = await this.prisma.department.findFirst({

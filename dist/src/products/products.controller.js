@@ -27,7 +27,12 @@ let ProductsController = class ProductsController {
         this.productsService = productsService;
     }
     async getProducts(q, departmentId, saleType, active) {
-        return this.productsService.getProducts({ q, departmentId, saleType, active });
+        return this.productsService.getProducts({
+            q,
+            departmentId,
+            saleType,
+            active,
+        });
     }
     async getProductById(id) {
         return this.productsService.getProductById(id);

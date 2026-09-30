@@ -143,7 +143,10 @@ export class LocationsService {
 
     if (data.code !== undefined) {
       const code = data.code?.trim() || null;
-      if (code && (!existing.code || code.toLowerCase() !== existing.code.toLowerCase())) {
+      if (
+        code &&
+        (!existing.code || code.toLowerCase() !== existing.code.toLowerCase())
+      ) {
         const duplicate = await this.prisma.location.findFirst({
           where: {
             businessId,

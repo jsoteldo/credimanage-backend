@@ -197,7 +197,9 @@ export async function seed2cbFixtures() {
     adminUser,
   );
 
-  console.log('✅ [2C-B SEED] Fixtures creados exitosamente en credimanage_e2e_test');
+  console.log(
+    '✅ [2C-B SEED] Fixtures creados exitosamente en credimanage_e2e_test',
+  );
 
   await app.close();
 }

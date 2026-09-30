@@ -1,6 +1,6 @@
 /**
  * SAFETY GUARD: Production Database Prevention
- * 
+ *
  * Strict Requirement:
  * 1. Must run BEFORE PrismaClient, setup, seed, migrations, or any PostgreSQL connection.
  * 2. Positive whitelist: hostname MUST be 127.0.0.1 or localhost AND database name MUST be credimanage_e2e_test.
@@ -12,7 +12,7 @@ export function assertNonProductionDatabase(dbUrl?: string): boolean {
 
   if (!urlToTest || typeof urlToTest !== 'string') {
     throw new Error(
-      'FATAL SAFETY ERROR: DATABASE_URL is not defined or empty. Aborting before database connection.'
+      'FATAL SAFETY ERROR: DATABASE_URL is not defined or empty. Aborting before database connection.',
     );
   }
 
@@ -29,7 +29,7 @@ export function assertNonProductionDatabase(dbUrl?: string): boolean {
   for (const sig of blacklistedSignatures) {
     if (lower.includes(sig)) {
       throw new Error(
-        `FATAL SAFETY VIOLATION: DATABASE_URL contains production signature "${sig}"! Execution aborted immediately before connection.`
+        `FATAL SAFETY VIOLATION: DATABASE_URL contains production signature "${sig}"! Execution aborted immediately before connection.`,
       );
     }
   }
@@ -39,7 +39,9 @@ export function assertNonProductionDatabase(dbUrl?: string): boolean {
   try {
     parsed = new URL(urlToTest);
   } catch (err: any) {
-    throw new Error(`FATAL SAFETY ERROR: Failed to parse DATABASE_URL: ${err.message}`);
+    throw new Error(
+      `FATAL SAFETY ERROR: Failed to parse DATABASE_URL: ${err.message}`,
+    );
   }
 
   const hostname = parsed.hostname.toLowerCase();
@@ -48,14 +50,14 @@ export function assertNonProductionDatabase(dbUrl?: string): boolean {
   const allowedHosts = ['localhost', '127.0.0.1'];
   if (!allowedHosts.includes(hostname)) {
     throw new Error(
-      `FATAL SAFETY VIOLATION: Host "${hostname}" is not an authorized local test host (must be localhost or 127.0.0.1). Aborting.`
+      `FATAL SAFETY VIOLATION: Host "${hostname}" is not an authorized local test host (must be localhost or 127.0.0.1). Aborting.`,
     );
   }
 
   const allowedDatabase = 'credimanage_e2e_test';
   if (dbName !== allowedDatabase) {
     throw new Error(
-      `FATAL SAFETY VIOLATION: Database name "${dbName}" does not match strict whitelist "${allowedDatabase}". Aborting.`
+      `FATAL SAFETY VIOLATION: Database name "${dbName}" does not match strict whitelist "${allowedDatabase}". Aborting.`,
     );
   }
 
