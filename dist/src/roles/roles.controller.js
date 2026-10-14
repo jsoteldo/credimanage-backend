@@ -81,7 +81,7 @@ __decorate([
 ], RolesController.prototype, "getAllPermissions", null);
 exports.RolesController = RolesController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
-    (0, common_1.Controller)('crediApi'),
+    (0, common_1.Controller)(['crediApi', 'api']),
     __metadata("design:paramtypes", [roles_service_1.RolesService])
 ], RolesController);
 //# sourceMappingURL=roles.controller.js.map

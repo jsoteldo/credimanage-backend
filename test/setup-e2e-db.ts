@@ -75,6 +75,16 @@ export async function ensureE2eDatabase(): Promise<void> {
       ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "approvedAt" TIMESTAMP(3);
       ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "rejectedAt" TIMESTAMP(3);
       ALTER TABLE "Payment" ADD COLUMN IF NOT EXISTS "rejectionReason" TEXT;
+
+      CREATE TABLE IF NOT EXISTS "SystemSetting" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "key" TEXT NOT NULL,
+        "value" TEXT NOT NULL,
+        "description" TEXT,
+        "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS "SystemSetting_key_key" ON "SystemSetting"("key");
     `);
   } finally {
     await schemaClient.end();
@@ -97,6 +107,19 @@ export async function cleanE2eDatabase(): Promise<void> {
     // Truncate all tables in public schema in credimanage_e2e_test
     await pgClient.query(`
       TRUNCATE TABLE 
+        "Receipt",
+        "ReceiptSequence",
+        "CashMovement",
+        "SalePayment",
+        "SaleItem",
+        "Sale",
+        "CashSession",
+        "CashRegister",
+        "InventoryMovement",
+        "InventoryStock",
+        "ProductKitComponent",
+        "Product",
+        "Location",
         "BalanceOpeningSnapshot",
         "BalanceAdjustment",
         "Installment",

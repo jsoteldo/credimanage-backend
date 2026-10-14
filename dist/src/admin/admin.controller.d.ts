@@ -137,6 +137,7 @@ export declare class AdminController {
             annulmentReason: string | null;
             debtType: string;
             loanId: string | null;
+            saleId: string | null;
         }[];
         annulledPayments: {
             id: string;

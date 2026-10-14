@@ -111,9 +111,20 @@ let ProductsService = class ProductsService {
         const saleType = data.saleType || client_1.ProductSaleType.UNIT;
         const isKit = saleType === client_1.ProductSaleType.KIT;
         const tracksInventory = isKit ? false : data.tracksInventory !== false;
+        if (data.defaultMinStock !== undefined && data.defaultMinStock !== null && data.defaultMinStock !== '') {
+            const minVal = Number(data.defaultMinStock);
+            if (isNaN(minVal) || !Number.isFinite(minVal) || !Number.isInteger(minVal)) {
+                throw new common_1.BadRequestException('La cantidad de inventario debe ser un número entero.');
+            }
+            if (minVal < 0) {
+                throw new common_1.BadRequestException('El stock mínimo no puede ser negativo');
+            }
+        }
         const defaultMinStock = isKit
             ? 0
-            : Math.max(0, Number(data.defaultMinStock) || 0);
+            : data.defaultMinStock !== undefined && data.defaultMinStock !== null && data.defaultMinStock !== ''
+                ? Number(data.defaultMinStock)
+                : 0;
         const costPrice = Math.max(0, Number(data.costPrice) || 0);
         const salePrice = Math.max(0, Number(data.salePrice) || 0);
         const wholesalePrice = Math.max(0, Number(data.wholesalePrice) || salePrice);
@@ -137,7 +148,7 @@ let ProductsService = class ProductsService {
                     salePrice: new client_1.Prisma.Decimal(salePrice),
                     wholesalePrice: new client_1.Prisma.Decimal(wholesalePrice),
                     tracksInventory,
-                    defaultMinStock: new client_1.Prisma.Decimal(defaultMinStock),
+                    defaultMinStock,
                     active: true,
                 },
             });
@@ -147,7 +158,7 @@ let ProductsService = class ProductsService {
                         data: {
                             kitProductId: newProduct.id,
                             componentProductId: comp.componentProductId,
-                            quantity: new client_1.Prisma.Decimal(Number(comp.quantity)),
+                            quantity: Number(comp.quantity),
                         },
                     });
                 }
@@ -236,14 +247,26 @@ let ProductsService = class ProductsService {
         updateData.saleType = newSaleType;
         if (isKit) {
             updateData.tracksInventory = false;
-            updateData.defaultMinStock = new client_1.Prisma.Decimal(0);
+            updateData.defaultMinStock = 0;
         }
         else {
             if (data.tracksInventory !== undefined) {
                 updateData.tracksInventory = Boolean(data.tracksInventory);
             }
             if (data.defaultMinStock !== undefined) {
-                updateData.defaultMinStock = new client_1.Prisma.Decimal(Math.max(0, Number(data.defaultMinStock) || 0));
+                if (data.defaultMinStock !== null && data.defaultMinStock !== '') {
+                    const minVal = Number(data.defaultMinStock);
+                    if (isNaN(minVal) || !Number.isFinite(minVal) || !Number.isInteger(minVal)) {
+                        throw new common_1.BadRequestException('La cantidad de inventario debe ser un número entero.');
+                    }
+                    if (minVal < 0) {
+                        throw new common_1.BadRequestException('El stock mínimo no puede ser negativo');
+                    }
+                    updateData.defaultMinStock = minVal;
+                }
+                else {
+                    updateData.defaultMinStock = 0;
+                }
             }
         }
         if (data.costPrice !== undefined) {
@@ -281,7 +304,7 @@ let ProductsService = class ProductsService {
                         data: {
                             kitProductId: id,
                             componentProductId: comp.componentProductId,
-                            quantity: new client_1.Prisma.Decimal(Number(comp.quantity)),
+                            quantity: Number(comp.quantity),
                         },
                     });
                 }
@@ -352,8 +375,8 @@ let ProductsService = class ProductsService {
         const seen = new Set();
         for (const comp of components) {
             const qty = Number(comp.quantity);
-            if (isNaN(qty) || qty <= 0) {
-                throw new common_1.BadRequestException('La cantidad de cada componente en un KIT debe ser estrictamente mayor a 0');
+            if (isNaN(qty) || !Number.isFinite(qty) || !Number.isInteger(qty) || qty <= 0) {
+                throw new common_1.BadRequestException('La cantidad de inventario debe ser un número entero.');
             }
             if (currentKitId && comp.componentProductId === currentKitId) {
                 throw new common_1.BadRequestException('Un producto KIT no puede contenerse a sí mismo');

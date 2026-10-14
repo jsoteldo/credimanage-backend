@@ -92,8 +92,8 @@ export function toProductDto(product: any): ProductResponseDto {
         : Number(product.wholesalePrice || 0),
     tracksInventory: product.tracksInventory,
     defaultMinStock:
-      product.defaultMinStock instanceof Prisma.Decimal
-        ? product.defaultMinStock.toNumber()
+      typeof product.defaultMinStock === 'number'
+        ? product.defaultMinStock
         : Number(product.defaultMinStock || 0),
     active: product.active,
     components: product.kitComponents?.map((kc: any) => ({
@@ -102,8 +102,8 @@ export function toProductDto(product: any): ProductResponseDto {
       componentSku: kc.componentProduct?.sku || '',
       componentName: kc.componentProduct?.name || '',
       quantity:
-        kc.quantity instanceof Prisma.Decimal
-          ? kc.quantity.toNumber()
+        typeof kc.quantity === 'number'
+          ? kc.quantity
           : Number(kc.quantity || 0),
       saleType: kc.componentProduct?.saleType || 'UNIT',
     })),

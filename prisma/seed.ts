@@ -48,6 +48,52 @@ async function main() {
     },
   });
 
+  // Cash module permissions
+  const cashPerms = [
+    { code: 'cash.open', name: 'Abrir turno', module: 'cash', description: 'Permite realizar la apertura de un turno de caja con fondo inicial.' },
+    { code: 'cash.close', name: 'Cerrar turno', module: 'cash', description: 'Permite realizar el arqueo y cierre definitivo de turno de caja.' },
+    { code: 'cash.cash_in', name: 'Registrar ingresos manuales', module: 'cash', description: 'Permite agregar efectivo manualmente a una caja abierta.' },
+    { code: 'cash.cash_out', name: 'Registrar retiros / egresos', module: 'cash', description: 'Permite retirar efectivo manualmente de una caja abierta.' },
+    { code: 'cash.view', name: 'Consultar historial de caja', module: 'cash', description: 'Permite consultar el historial de turnos, arqueos y movimientos de caja.' },
+    { code: 'cash.manage', name: 'Gestionar cajas registradoras', module: 'cash', description: 'Permite crear, editar, activar y desactivar cajas registradoras.' },
+  ];
+
+  for (const p of cashPerms) {
+    await prisma.permission.upsert({
+      where: { code: p.code },
+      update: p,
+      create: p,
+    });
+  }
+
+  const adminRole = await prisma.role.findUnique({ where: { name: 'Administrador' } });
+  if (adminRole) {
+    for (const p of cashPerms) {
+      const perm = await prisma.permission.findUnique({ where: { code: p.code } });
+      if (perm) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: adminRole.id, permissionId: perm.id } },
+          update: {},
+          create: { roleId: adminRole.id, permissionId: perm.id },
+        });
+      }
+    }
+  }
+
+  const cajeroRole = await prisma.role.findUnique({ where: { name: 'Cajero' } });
+  if (cajeroRole) {
+    for (const code of ['cash.open', 'cash.close', 'cash.view']) {
+      const perm = await prisma.permission.findUnique({ where: { code } });
+      if (perm) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: cajeroRole.id, permissionId: perm.id } },
+          update: {},
+          create: { roleId: cajeroRole.id, permissionId: perm.id },
+        });
+      }
+    }
+  }
+
   console.log('Database structural seeding checked/completed successfully!');
 }
 

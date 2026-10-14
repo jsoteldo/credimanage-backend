@@ -27,6 +27,9 @@ let PermissionsGuard = class PermissionsGuard {
         if (!user) {
             return false;
         }
+        if (user.role === 'Administrador') {
+            return true;
+        }
         const userPermissions = user.permissions || [];
         const missing = requiredPermissions.filter((perm) => !userPermissions.includes(perm));
         if (missing.length > 0) {

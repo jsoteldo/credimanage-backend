@@ -15,9 +15,9 @@ export declare class JwtStrategy extends JwtStrategy_base {
                     id: string;
                     name: string;
                     createdAt: Date;
-                    description: string | null;
                     code: string;
                     module: string;
+                    description: string | null;
                 };
             } & {
                 id: string;

@@ -26,6 +26,11 @@ export class PermissionsGuard implements CanActivate {
       return false;
     }
 
+    // Administrador always has full access as safety fallback
+    if (user.role === 'Administrador') {
+      return true;
+    }
+
     const userPermissions: string[] = user.permissions || [];
     const missing = requiredPermissions.filter(
       (perm) => !userPermissions.includes(perm),

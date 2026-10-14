@@ -37,6 +37,7 @@ export declare class ClientsController {
             annulmentReason: string | null;
             debtType: string;
             loanId: string | null;
+            saleId: string | null;
         }[];
         payments: {
             id: string;
@@ -85,8 +86,8 @@ export declare class ClientsController {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            product: string | null;
             code: string;
+            product: string | null;
             status: import("@prisma/client").$Enums.LoanStatus;
             clientId: string;
             date: Date;

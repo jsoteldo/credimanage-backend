@@ -63,8 +63,12 @@ model User {
   approved   Boolean   @default(false)
   approvedBy String?
   approvedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  openedCashSessions CashSession[]  @relation("OpenedSessions")
+  closedCashSessions CashSession[]  @relation("ClosedSessions")
+  cashMovements      CashMovement[] @relation("CreatedMovements")
 }
 
 model Client {
@@ -90,6 +94,7 @@ model Client {
   purchases      CreditPurchase[]
   payments       Payment[]
   loans          Loan[]
+  sales          Sale[]
 }
 
 model Loan {
@@ -161,6 +166,10 @@ model CreditPurchase {
   debtType           String          @default("simple") // "simple" or "credit"
   loanId             String?
   loan               Loan?           @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  saleId             String?
+  sale               Sale?           @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
 }
 
 enum PaymentStatus {
@@ -287,6 +296,13 @@ model Location {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  stocks        InventoryStock[]
+  movements     InventoryMovement[]
+  sales         Sale[]
+  cashRegisters CashRegister[]
+  cashSessions  CashSession[]
+  cashMovements CashMovement[]
+
   @@unique([businessId, name])
   @@unique([businessId, code])
   @@index([businessId, active])
@@ -337,13 +353,16 @@ model Product {
   salePrice       Decimal         @default(0) @db.Decimal(12, 4)
   wholesalePrice  Decimal         @default(0) @db.Decimal(12, 4)
   tracksInventory Boolean         @default(true)
-  defaultMinStock Decimal?        @default(0) @db.Decimal(12, 3)
+  defaultMinStock Int?            @default(0)
   active          Boolean         @default(true)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
   kitComponents   ProductKitComponent[] @relation("KitParent")
   componentOfKits ProductKitComponent[] @relation("ComponentProduct")
+  stocks          InventoryStock[]
+  movements       InventoryMovement[]
+  saleItems       SaleItem[]
 
   @@unique([businessId, sku])
   @@unique([businessId, barcode])
@@ -356,11 +375,67 @@ model ProductKitComponent {
   kitProduct         Product  @relation("KitParent", fields: [kitProductId], references: [id], onDelete: Cascade)
   componentProductId String
   componentProduct   Product  @relation("ComponentProduct", fields: [componentProductId], references: [id], onDelete: Restrict)
-  quantity           Decimal  @db.Decimal(12, 3)
+  quantity           Int
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   @@unique([kitProductId, componentProductId])
+}
+
+// =========================================================================
+// MÓDULO INVENTARIO MULTI-TIENDA / MULTI-ALMACÉN (ETAPA 1)
+// =========================================================================
+
+enum InventoryMovementType {
+  INITIAL
+  ENTRY
+  ADJUSTMENT_POSITIVE
+  ADJUSTMENT_NEGATIVE
+  TRANSFER_OUT
+  TRANSFER_IN
+  SALE
+  SALE_REVERSAL
+  RETURN
+}
+
+model InventoryStock {
+  id           String   @id @default(uuid())
+  locationId   String
+  location     Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity     Int      @default(0)
+  minimumStock Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([locationId, productId])
+  @@index([locationId])
+  @@index([productId])
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid())
+  locationId    String
+  location      Location              @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type          InventoryMovementType
+  quantity      Int
+  previousStock Int
+  newStock      Int
+  referenceType String?
+  referenceId   String?
+  reason        String?
+  notes         String?
+  createdBy     String
+  createdAt     DateTime              @default(now())
+
+  @@index([locationId])
+  @@index([productId])
+  @@index([type])
+  @@index([referenceId])
+  @@index([createdAt])
 }
 
 model Role {
@@ -403,3 +478,234 @@ model SystemSetting {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// =========================================================================
+// MÓDULO VENTAS / POS (ETAPA 2)
+// =========================================================================
+
+enum SaleStatus {
+  DRAFT
+  COMPLETED
+  ANULLED
+}
+
+enum SalePaymentMethod {
+  CASH
+  YAPE
+  PLIN
+  CARD
+  TRANSFER
+  CREDIT
+}
+
+model Sale {
+  id              String            @id @default(uuid())
+  businessId      String            @default("default")
+  saleNumber      String            @unique
+  storeId         String
+  store           Location          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  clientId        String?
+  client          Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  status          SaleStatus        @default(COMPLETED)
+  subtotal        Decimal           @db.Decimal(12, 2)
+  total           Decimal           @db.Decimal(12, 2)
+  cardSurcharge   Decimal?          @default(0) @db.Decimal(12, 2)
+  paymentStatus   String            @default("PAID")
+  cashReceived    Decimal?          @db.Decimal(12, 2)
+  cashChange      Decimal?          @db.Decimal(12, 2)
+  notes           String?
+  createdBy       String
+  createdAt       DateTime          @default(now())
+  completedAt     DateTime?         @default(now())
+  annulledAt      DateTime?
+  annulledBy      String?
+  annulReason     String?
+
+  cashSessionId   String?
+  cashSession     CashSession?      @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  receipt         Receipt?
+  cashMovements   CashMovement[]
+
+  items           SaleItem[]
+  payments        SalePayment[]
+  creditPurchases CreditPurchase[]
+
+  @@index([businessId])
+  @@index([storeId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([cashSessionId])
+}
+
+model SaleItem {
+  id                  String          @id @default(uuid())
+  saleId              String
+  sale                Sale            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productCodeSnapshot String
+  productNameSnapshot String
+  quantity            Int
+  unitPrice           Decimal         @db.Decimal(12, 2)
+  lineTotal           Decimal         @db.Decimal(12, 2)
+  productType         ProductSaleType @default(UNIT)
+  createdAt           DateTime        @default(now())
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model SalePayment {
+  id         String            @id @default(uuid())
+  saleId     String
+  sale       Sale              @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method     SalePaymentMethod
+  amount     Decimal           @db.Decimal(12, 2)
+  reference  String?
+  createdAt  DateTime          @default(now())
+
+  @@index([saleId])
+  @@index([method])
+}
+
+// =========================================================================
+// MÓDULO CAJA, TURNOS, MOVIMIENTOS Y BOLETA SIMPLE (ETAPA 3)
+// =========================================================================
+
+enum CashRegisterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  OPENING
+  SALE
+  SALE_REVERSAL
+  CASH_IN
+  CASH_OUT
+  DEBT_PAYMENT
+  LOAN_PAYMENT
+  CLOSING_ADJUSTMENT
+}
+
+model CashRegister {
+  id          String             @id @default(uuid())
+  businessId  String             @default("default")
+  storeId     String
+  store       Location           @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  code        String
+  name        String
+  status      CashRegisterStatus @default(ACTIVE)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  sessions    CashSession[]
+  movements   CashMovement[]
+
+  @@unique([storeId, code])
+  @@index([businessId])
+  @@index([storeId])
+  @@index([status])
+}
+
+model CashSession {
+  id                 String            @id @default(uuid())
+  businessId         String            @default("default")
+  cashRegisterId     String
+  cashRegister       CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  storeId            String
+  store              Location          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  openedByUserId     String
+  openedByUser       User              @relation("OpenedSessions", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  openedAt           DateTime          @default(now())
+  openingCashAmount  Decimal           @db.Decimal(12, 2)
+  status             CashSessionStatus @default(OPEN)
+  closedAt           DateTime?
+  closedByUserId     String?
+  closedByUser       User?             @relation("ClosedSessions", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  expectedCashAmount Decimal?          @db.Decimal(12, 2)
+  countedCashAmount  Decimal?          @db.Decimal(12, 2)
+  differenceAmount   Decimal?          @db.Decimal(12, 2)
+  notes              String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  movements          CashMovement[]
+  sales              Sale[]
+
+  @@index([businessId])
+  @@index([cashRegisterId])
+  @@index([storeId])
+  @@index([openedByUserId])
+  @@index([status])
+  @@index([openedAt])
+}
+
+model CashMovement {
+  id               String            @id @default(uuid())
+  businessId       String            @default("default")
+  cashSessionId    String
+  cashSession      CashSession       @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
+  storeId          String
+  store            Location          @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  cashRegisterId   String
+  cashRegister     CashRegister      @relation(fields: [cashRegisterId], references: [id], onDelete: Restrict)
+  saleId           String?
+  sale             Sale?             @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  type             CashMovementType
+  paymentMethod    SalePaymentMethod
+  amount           Decimal           @db.Decimal(12, 2)
+  referenceType    String?
+  referenceId      String?
+  description      String?
+  notes            String?
+  createdByUserId  String
+  createdByUser    User              @relation("CreatedMovements", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt        DateTime          @default(now())
+
+  @@index([cashSessionId])
+  @@index([storeId])
+  @@index([cashRegisterId])
+  @@index([saleId])
+  @@index([type])
+  @@index([paymentMethod])
+  @@index([referenceId])
+  @@index([createdAt])
+}
+
+model Receipt {
+  id              String    @id @default(uuid())
+  businessId      String    @default("default")
+  saleId          String    @unique
+  sale            Sale      @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  number          String    @unique
+  series          String    @default("B001")
+  sequence        Int
+  configSnapshot  Json
+  notes           String?
+  reprintedCount  Int       @default(0)
+  lastReprintedAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([businessId])
+  @@index([series, sequence])
+  @@index([createdAt])
+}
+
+model ReceiptSequence {
+  id              String   @id @default(uuid())
+  businessId      String   @default("default")
+  series          String
+  currentSequence Int      @default(0)
+  updatedAt       DateTime @updatedAt
+
+  @@unique([businessId, series])
+}
+
+

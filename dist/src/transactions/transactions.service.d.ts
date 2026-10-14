@@ -8,6 +8,8 @@ export declare class TransactionsService {
     private balanceSyncService;
     constructor(prisma: PrismaService, auditService: AuditService, balanceSyncService: BalanceSyncService);
     private mapClient;
+    private mapToSalePaymentMethod;
+    private mapToLegacyPaymentMethod;
     private getDateFilterRange;
     addCreditPurchase(clientId: string, data: any, user: any): Promise<{
         purchase: {
@@ -28,6 +30,7 @@ export declare class TransactionsService {
             annulmentReason: string | null;
             debtType: string;
             loanId: string | null;
+            saleId: string | null;
         };
         client: import("../clients/client.dto").ClientResponseDto | null;
     }>;
@@ -219,6 +222,7 @@ export declare class TransactionsService {
             annulmentReason: string | null;
             debtType: string;
             loanId: string | null;
+            saleId: string | null;
         };
         client: import("../clients/client.dto").ClientResponseDto | null;
     }>;
@@ -260,8 +264,8 @@ export declare class TransactionsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            product: string | null;
             code: string;
+            product: string | null;
             status: import("@prisma/client").$Enums.LoanStatus;
             clientId: string;
             date: Date;
@@ -301,6 +305,7 @@ export declare class TransactionsService {
             annulmentReason: string | null;
             debtType: string;
             loanId: string | null;
+            saleId: string | null;
         };
         client: import("../clients/client.dto").ClientResponseDto | null;
         message: string;
@@ -330,8 +335,8 @@ export declare class TransactionsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        product: string | null;
         code: string;
+        product: string | null;
         status: import("@prisma/client").$Enums.LoanStatus;
         clientId: string;
         date: Date;
@@ -372,8 +377,8 @@ export declare class TransactionsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        product: string | null;
         code: string;
+        product: string | null;
         status: import("@prisma/client").$Enums.LoanStatus;
         clientId: string;
         date: Date;
@@ -414,8 +419,8 @@ export declare class TransactionsService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
-        product: string | null;
         code: string;
+        product: string | null;
         status: import("@prisma/client").$Enums.LoanStatus;
         clientId: string;
         date: Date;
@@ -443,8 +448,8 @@ export declare class TransactionsService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
-            product: string | null;
             code: string;
+            product: string | null;
             status: import("@prisma/client").$Enums.LoanStatus;
             clientId: string;
             date: Date;
@@ -561,6 +566,7 @@ export declare class TransactionsService {
             annulmentReason: string | null;
             debtType: string;
             loanId: string | null;
+            saleId: string | null;
         }[];
         summary: {
             count: number;

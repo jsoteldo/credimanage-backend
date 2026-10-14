@@ -473,18 +473,18 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
   });
 
   // E. Crear Product WEIGHT
-  it('E: Debe crear un Product de tipo WEIGHT con soporte decimal', async () => {
+  it('E: Debe crear un Product de tipo WEIGHT con stock entero', async () => {
     const prod = await productsService.createProduct({
       sku: 'QUESO-BLANCO',
       name: 'Queso Blanco Llanero',
       saleType: ProductSaleType.WEIGHT,
       salePrice: 4.5,
       costPrice: 3.2,
-      defaultMinStock: 2.5,
+      defaultMinStock: 2,
     });
     expect(prod).toBeDefined();
     expect(prod.saleType).toBe('WEIGHT');
-    expect(prod.defaultMinStock).toBe(2.5);
+    expect(prod.defaultMinStock).toBe(2);
   });
 
   // F. Crear Product sin inventario (tracksInventory = false)
@@ -629,7 +629,7 @@ describe('ENTREGA 1 — Dominio Base Productos e Inventario (Tests A a AI)', () 
       components: [
         { componentProductId: c1.id, quantity: 2 },
         { componentProductId: c2.id, quantity: 1 },
-        { componentProductId: c3.id, quantity: 0.5 },
+        { componentProductId: c3.id, quantity: 3 },
       ],
     });
 

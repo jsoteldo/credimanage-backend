@@ -164,9 +164,22 @@ export class ProductsService {
 
     // Backend Invariant: KITS force tracksInventory = false and defaultMinStock = 0
     const tracksInventory = isKit ? false : data.tracksInventory !== false;
+    if (data.defaultMinStock !== undefined && data.defaultMinStock !== null && data.defaultMinStock !== '') {
+      const minVal = Number(data.defaultMinStock);
+      if (isNaN(minVal) || !Number.isFinite(minVal) || !Number.isInteger(minVal)) {
+        throw new BadRequestException(
+          'La cantidad de inventario debe ser un número entero.',
+        );
+      }
+      if (minVal < 0) {
+        throw new BadRequestException('El stock mínimo no puede ser negativo');
+      }
+    }
     const defaultMinStock = isKit
       ? 0
-      : Math.max(0, Number(data.defaultMinStock) || 0);
+      : data.defaultMinStock !== undefined && data.defaultMinStock !== null && data.defaultMinStock !== ''
+        ? Number(data.defaultMinStock)
+        : 0;
 
     const costPrice = Math.max(0, Number(data.costPrice) || 0);
     const salePrice = Math.max(0, Number(data.salePrice) || 0);
@@ -200,7 +213,7 @@ export class ProductsService {
           salePrice: new Prisma.Decimal(salePrice),
           wholesalePrice: new Prisma.Decimal(wholesalePrice),
           tracksInventory,
-          defaultMinStock: new Prisma.Decimal(defaultMinStock),
+          defaultMinStock,
           active: true,
         },
       });
@@ -211,7 +224,7 @@ export class ProductsService {
             data: {
               kitProductId: newProduct.id,
               componentProductId: comp.componentProductId,
-              quantity: new Prisma.Decimal(Number(comp.quantity)),
+              quantity: Number(comp.quantity),
             },
           });
         }
@@ -324,15 +337,26 @@ export class ProductsService {
     if (isKit) {
       // Backend invariant: KIT forces tracksInventory = false and defaultMinStock = 0
       updateData.tracksInventory = false;
-      updateData.defaultMinStock = new Prisma.Decimal(0);
+      updateData.defaultMinStock = 0;
     } else {
       if (data.tracksInventory !== undefined) {
         updateData.tracksInventory = Boolean(data.tracksInventory);
       }
       if (data.defaultMinStock !== undefined) {
-        updateData.defaultMinStock = new Prisma.Decimal(
-          Math.max(0, Number(data.defaultMinStock) || 0),
-        );
+        if (data.defaultMinStock !== null && data.defaultMinStock !== '') {
+          const minVal = Number(data.defaultMinStock);
+          if (isNaN(minVal) || !Number.isFinite(minVal) || !Number.isInteger(minVal)) {
+            throw new BadRequestException(
+              'La cantidad de inventario debe ser un número entero.',
+            );
+          }
+          if (minVal < 0) {
+            throw new BadRequestException('El stock mínimo no puede ser negativo');
+          }
+          updateData.defaultMinStock = minVal;
+        } else {
+          updateData.defaultMinStock = 0;
+        }
       }
     }
 
@@ -389,7 +413,7 @@ export class ProductsService {
             data: {
               kitProductId: id,
               componentProductId: comp.componentProductId,
-              quantity: new Prisma.Decimal(Number(comp.quantity)),
+              quantity: Number(comp.quantity),
             },
           });
         }
@@ -486,9 +510,9 @@ export class ProductsService {
 
     for (const comp of components) {
       const qty = Number(comp.quantity);
-      if (isNaN(qty) || qty <= 0) {
+      if (isNaN(qty) || !Number.isFinite(qty) || !Number.isInteger(qty) || qty <= 0) {
         throw new BadRequestException(
-          'La cantidad de cada componente en un KIT debe ser estrictamente mayor a 0',
+          'La cantidad de inventario debe ser un número entero.',
         );
       }
 

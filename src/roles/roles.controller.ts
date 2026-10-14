@@ -13,7 +13,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('crediApi')
+@Controller(['crediApi', 'api'])
 export class RolesController {
   constructor(private rolesService: RolesService) {}
 

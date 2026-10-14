@@ -169,7 +169,7 @@ export class ExcelImporterService {
         0,
         Number(row.preciomayoreo) || salePrice,
       );
-      const defaultMinStock = Math.max(0, Number(row.invminimo) || 0);
+      const defaultMinStock = Math.max(0, Math.round(Number(row.invminimo) || 0));
 
       try {
         // Resolve or create department if provided
@@ -229,7 +229,7 @@ export class ExcelImporterService {
               costPrice: new Prisma.Decimal(costPrice),
               salePrice: new Prisma.Decimal(salePrice),
               wholesalePrice: new Prisma.Decimal(wholesalePrice),
-              defaultMinStock: new Prisma.Decimal(defaultMinStock),
+              defaultMinStock,
             },
           });
           updatedCount++;
@@ -247,7 +247,7 @@ export class ExcelImporterService {
               salePrice: new Prisma.Decimal(salePrice),
               wholesalePrice: new Prisma.Decimal(wholesalePrice),
               tracksInventory: true,
-              defaultMinStock: new Prisma.Decimal(defaultMinStock),
+              defaultMinStock,
               active: true,
             },
           });

@@ -16,6 +16,9 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { ProductsModule } from './products/products.module';
 import { RolesModule } from './roles/roles.module';
 import { SettingsModule } from './settings/settings.module';
+import { InventoryModule } from './inventory/inventory.module';
+import { SalesModule } from './sales/sales.module';
+import { CashModule } from './cash/cash.module';
 
 // Dynamically resolve React dist path
 const frontendDistPath = join(process.cwd(), '..', 'frontend', 'dist');
@@ -49,6 +52,9 @@ const distPath = existsSync(join(frontendDistPath, 'index.html'))
     ProductsModule,
     RolesModule,
     SettingsModule,
+    InventoryModule,
+    SalesModule,
+    CashModule,
   ],
 })
 export class AppModule {}

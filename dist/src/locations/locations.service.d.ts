@@ -16,8 +16,8 @@ export declare class LocationsService {
         updatedAt: Date;
         code: string | null;
         address: string | null;
-        type: import("@prisma/client").$Enums.LocationType;
         businessId: string;
+        type: import("@prisma/client").$Enums.LocationType;
     }[]>;
     getLocationById(id: string, businessId?: string): Promise<{
         id: string;
@@ -27,8 +27,8 @@ export declare class LocationsService {
         updatedAt: Date;
         code: string | null;
         address: string | null;
-        type: import("@prisma/client").$Enums.LocationType;
         businessId: string;
+        type: import("@prisma/client").$Enums.LocationType;
     }>;
     createLocation(data: {
         name: string;
@@ -44,8 +44,8 @@ export declare class LocationsService {
         updatedAt: Date;
         code: string | null;
         address: string | null;
-        type: import("@prisma/client").$Enums.LocationType;
         businessId: string;
+        type: import("@prisma/client").$Enums.LocationType;
     }>;
     updateLocation(id: string, data: {
         name?: string;
@@ -62,8 +62,8 @@ export declare class LocationsService {
         updatedAt: Date;
         code: string | null;
         address: string | null;
-        type: import("@prisma/client").$Enums.LocationType;
         businessId: string;
+        type: import("@prisma/client").$Enums.LocationType;
     }>;
     deactivateLocation(id: string, businessId?: string): Promise<{
         id: string;
@@ -73,8 +73,8 @@ export declare class LocationsService {
         updatedAt: Date;
         code: string | null;
         address: string | null;
-        type: import("@prisma/client").$Enums.LocationType;
         businessId: string;
+        type: import("@prisma/client").$Enums.LocationType;
     }>;
     reactivateLocation(id: string, businessId?: string): Promise<{
         id: string;
@@ -84,7 +84,7 @@ export declare class LocationsService {
         updatedAt: Date;
         code: string | null;
         address: string | null;
-        type: import("@prisma/client").$Enums.LocationType;
         businessId: string;
+        type: import("@prisma/client").$Enums.LocationType;
     }>;
 }

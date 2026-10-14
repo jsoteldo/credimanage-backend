@@ -148,7 +148,7 @@ let ExcelImporterService = class ExcelImporterService {
             const costPrice = Math.max(0, Number(row.preciocosto) || 0);
             const salePrice = Math.max(0, Number(row.precioventa) || 0);
             const wholesalePrice = Math.max(0, Number(row.preciomayoreo) || salePrice);
-            const defaultMinStock = Math.max(0, Number(row.invminimo) || 0);
+            const defaultMinStock = Math.max(0, Math.round(Number(row.invminimo) || 0));
             try {
                 let departmentId = null;
                 const deptName = row.departamento?.toString().trim();
@@ -200,7 +200,7 @@ let ExcelImporterService = class ExcelImporterService {
                             costPrice: new client_1.Prisma.Decimal(costPrice),
                             salePrice: new client_1.Prisma.Decimal(salePrice),
                             wholesalePrice: new client_1.Prisma.Decimal(wholesalePrice),
-                            defaultMinStock: new client_1.Prisma.Decimal(defaultMinStock),
+                            defaultMinStock,
                         },
                     });
                     updatedCount++;
@@ -218,7 +218,7 @@ let ExcelImporterService = class ExcelImporterService {
                             salePrice: new client_1.Prisma.Decimal(salePrice),
                             wholesalePrice: new client_1.Prisma.Decimal(wholesalePrice),
                             tracksInventory: true,
-                            defaultMinStock: new client_1.Prisma.Decimal(defaultMinStock),
+                            defaultMinStock,
                             active: true,
                         },
                     });

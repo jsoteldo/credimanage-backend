@@ -14,6 +14,8 @@ import {
   PaymentMethod,
   OperationStatus,
   PaymentPeriod,
+  CashMovementType,
+  SalePaymentMethod,
   Prisma,
 } from '@prisma/client';
 import { toClientDto } from '../clients/client.dto';
@@ -28,6 +30,25 @@ export class TransactionsService {
 
   private mapClient(c: any) {
     return toClientDto(c);
+  }
+
+  private mapToSalePaymentMethod(inputMethod: any): SalePaymentMethod {
+    const m = (inputMethod || 'Efectivo').toString().toUpperCase();
+    if (m === 'CREDIT' || m === 'CRÉDITO') {
+      throw new BadRequestException('No se permite crédito como forma de pagar una deuda');
+    }
+    if (m === 'YAPE') return SalePaymentMethod.YAPE;
+    if (m === 'PLIN') return SalePaymentMethod.PLIN;
+    if (m === 'TARJETA' || m === 'CARD') return SalePaymentMethod.CARD;
+    if (m === 'TRANSFERENCIA' || m === 'TRANSFER') return SalePaymentMethod.TRANSFER;
+    return SalePaymentMethod.CASH;
+  }
+
+  private mapToLegacyPaymentMethod(inputMethod: any): PaymentMethod {
+    const m = (inputMethod || 'Efectivo').toString().toUpperCase();
+    if (m === 'TARJETA' || m === 'CARD') return PaymentMethod.Tarjeta;
+    if (m === 'TRANSFERENCIA' || m === 'TRANSFER' || m === 'YAPE' || m === 'PLIN') return PaymentMethod.Transferencia;
+    return PaymentMethod.Efectivo;
   }
 
   // Helpers to map date filters
@@ -636,16 +657,47 @@ export class TransactionsService {
         );
       }
 
-      const method = data.paymentMethod || 'Efectivo';
+      const mappedSaleMethod = this.mapToSalePaymentMethod(data.paymentMethod);
+      const legacyMethod = this.mapToLegacyPaymentMethod(data.paymentMethod);
       const cardSurcharge =
-        method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+        mappedSaleMethod === SalePaymentMethod.CARD ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
       const totalCharged = payAmount + cardSurcharge;
 
       let defaultNote = data.isFullPayoff
         ? 'Liquidación automática de deuda corriente'
         : 'Abono a deuda corriente';
-      if (method === 'Tarjeta') {
+      if (mappedSaleMethod === SalePaymentMethod.CARD) {
         defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
+      }
+
+      // Check CashSession for collections
+      let targetCashSession: any = null;
+      if (tx.cashSession) {
+        if (data.cashSessionId) {
+          targetCashSession = await tx.cashSession.findFirst({
+            where: { id: data.cashSessionId, status: 'OPEN' },
+          });
+          if (!targetCashSession) {
+            throw new BadRequestException('El turno de caja especificado no existe o no se encuentra abierto.');
+          }
+        } else if (data.storeId) {
+          targetCashSession = await tx.cashSession.findFirst({
+            where: { storeId: data.storeId, status: 'OPEN', openedByUserId: user.id },
+          });
+          if (!targetCashSession) {
+            targetCashSession = await tx.cashSession.findFirst({
+              where: { storeId: data.storeId, status: 'OPEN' },
+            });
+          }
+        } else if (user?.id) {
+          targetCashSession = await tx.cashSession.findFirst({
+            where: { openedByUserId: user.id, status: 'OPEN' },
+          });
+        }
+      }
+
+      if (data.requireCashSession && !targetCashSession) {
+        throw new BadRequestException('Debes abrir caja antes de registrar este cobro.');
       }
 
       const allocations = [{ targetType: 'dailyDebt', amount: payAmount }];
@@ -661,7 +713,7 @@ export class TransactionsService {
           amount: payAmount,
           previousBalance: client.currentBalance,
           resultingBalance: client.currentBalance,
-          paymentMethod: method,
+          paymentMethod: legacyMethod,
           cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
           totalCharged,
           registeredBy: user.name,
@@ -685,6 +737,26 @@ export class TransactionsService {
           where: { id: newPayment.id },
           data: { resultingBalance: synced.currentBalance },
         });
+
+        // Register CashMovement if session active (Req 50, 51, 54)
+        if (targetCashSession && tx.cashMovement) {
+          await tx.cashMovement.create({
+            data: {
+              businessId: targetCashSession.businessId,
+              cashSessionId: targetCashSession.id,
+              storeId: targetCashSession.storeId,
+              cashRegisterId: targetCashSession.cashRegisterId,
+              type: CashMovementType.DEBT_PAYMENT,
+              paymentMethod: mappedSaleMethod,
+              amount: new Prisma.Decimal(payAmount),
+              referenceType: 'Payment',
+              referenceId: newPayment.id,
+              description: `Cobranza deuda corriente - ${client.name}`,
+              notes: data.notes?.trim() || null,
+              createdByUserId: user.id || targetCashSession.openedByUserId,
+            },
+          });
+        }
 
         await this.auditService.logAudit(
           user.id,
@@ -771,16 +843,47 @@ export class TransactionsService {
         );
       }
 
-      const method = data.paymentMethod || 'Efectivo';
+      const mappedSaleMethod = this.mapToSalePaymentMethod(data.paymentMethod);
+      const legacyMethod = this.mapToLegacyPaymentMethod(data.paymentMethod);
       const cardSurcharge =
-        method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+        mappedSaleMethod === SalePaymentMethod.CARD ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
       const totalCharged = payAmount + cardSurcharge;
 
       let defaultNote = data.isFullPayoff
         ? `Liquidación de crédito ${loan.code}`
         : `Abono a cuotas de crédito ${loan.code}`;
-      if (method === 'Tarjeta') {
+      if (mappedSaleMethod === SalePaymentMethod.CARD) {
         defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
+      }
+
+      // Check CashSession for collections
+      let targetCashSession: any = null;
+      if (tx.cashSession) {
+        if (data.cashSessionId) {
+          targetCashSession = await tx.cashSession.findFirst({
+            where: { id: data.cashSessionId, status: 'OPEN' },
+          });
+          if (!targetCashSession) {
+            throw new BadRequestException('El turno de caja especificado no existe o no se encuentra abierto.');
+          }
+        } else if (data.storeId) {
+          targetCashSession = await tx.cashSession.findFirst({
+            where: { storeId: data.storeId, status: 'OPEN', openedByUserId: user.id },
+          });
+          if (!targetCashSession) {
+            targetCashSession = await tx.cashSession.findFirst({
+              where: { storeId: data.storeId, status: 'OPEN' },
+            });
+          }
+        } else if (user?.id) {
+          targetCashSession = await tx.cashSession.findFirst({
+            where: { openedByUserId: user.id, status: 'OPEN' },
+          });
+        }
+      }
+
+      if (data.requireCashSession && !targetCashSession) {
+        throw new BadRequestException('Debes abrir caja antes de registrar este cobro.');
       }
 
       const allocations: any[] = [];
@@ -816,7 +919,7 @@ export class TransactionsService {
           amount: payAmount,
           previousBalance: client.currentBalance,
           resultingBalance: client.currentBalance,
-          paymentMethod: method,
+          paymentMethod: legacyMethod,
           cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
           totalCharged,
           registeredBy: user.name,
@@ -897,6 +1000,26 @@ export class TransactionsService {
           where: { id: newPayment.id },
           data: { resultingBalance: synced.currentBalance },
         });
+
+        // Register CashMovement LOAN_PAYMENT if active session (Req 52, 54)
+        if (targetCashSession && tx.cashMovement) {
+          await tx.cashMovement.create({
+            data: {
+              businessId: targetCashSession.businessId,
+              cashSessionId: targetCashSession.id,
+              storeId: targetCashSession.storeId,
+              cashRegisterId: targetCashSession.cashRegisterId,
+              type: CashMovementType.LOAN_PAYMENT,
+              paymentMethod: mappedSaleMethod,
+              amount: new Prisma.Decimal(payAmount),
+              referenceType: 'Payment',
+              referenceId: newPayment.id,
+              description: `Cobranza de crédito ${loan.code} - ${client.name}`,
+              notes: data.notes?.trim() || null,
+              createdByUserId: user.id || targetCashSession.openedByUserId,
+            },
+          });
+        }
 
         await this.auditService.logAudit(
           user.id,

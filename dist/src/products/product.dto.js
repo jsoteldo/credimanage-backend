@@ -57,8 +57,8 @@ function toProductDto(product) {
             ? product.wholesalePrice.toNumber()
             : Number(product.wholesalePrice || 0),
         tracksInventory: product.tracksInventory,
-        defaultMinStock: product.defaultMinStock instanceof client_1.Prisma.Decimal
-            ? product.defaultMinStock.toNumber()
+        defaultMinStock: typeof product.defaultMinStock === 'number'
+            ? product.defaultMinStock
             : Number(product.defaultMinStock || 0),
         active: product.active,
         components: product.kitComponents?.map((kc) => ({
@@ -66,8 +66,8 @@ function toProductDto(product) {
             componentProductId: kc.componentProductId,
             componentSku: kc.componentProduct?.sku || '',
             componentName: kc.componentProduct?.name || '',
-            quantity: kc.quantity instanceof client_1.Prisma.Decimal
-                ? kc.quantity.toNumber()
+            quantity: typeof kc.quantity === 'number'
+                ? kc.quantity
                 : Number(kc.quantity || 0),
             saleType: kc.componentProduct?.saleType || 'UNIT',
         })),

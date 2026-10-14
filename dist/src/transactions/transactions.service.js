@@ -28,6 +28,29 @@ let TransactionsService = class TransactionsService {
     mapClient(c) {
         return (0, client_dto_1.toClientDto)(c);
     }
+    mapToSalePaymentMethod(inputMethod) {
+        const m = (inputMethod || 'Efectivo').toString().toUpperCase();
+        if (m === 'CREDIT' || m === 'CRÉDITO') {
+            throw new common_1.BadRequestException('No se permite crédito como forma de pagar una deuda');
+        }
+        if (m === 'YAPE')
+            return client_1.SalePaymentMethod.YAPE;
+        if (m === 'PLIN')
+            return client_1.SalePaymentMethod.PLIN;
+        if (m === 'TARJETA' || m === 'CARD')
+            return client_1.SalePaymentMethod.CARD;
+        if (m === 'TRANSFERENCIA' || m === 'TRANSFER')
+            return client_1.SalePaymentMethod.TRANSFER;
+        return client_1.SalePaymentMethod.CASH;
+    }
+    mapToLegacyPaymentMethod(inputMethod) {
+        const m = (inputMethod || 'Efectivo').toString().toUpperCase();
+        if (m === 'TARJETA' || m === 'CARD')
+            return client_1.PaymentMethod.Tarjeta;
+        if (m === 'TRANSFERENCIA' || m === 'TRANSFER' || m === 'YAPE' || m === 'PLIN')
+            return client_1.PaymentMethod.Transferencia;
+        return client_1.PaymentMethod.Efectivo;
+    }
     getDateFilterRange(dateFilter = 'today', startDate, endDate) {
         const start = new Date();
         const end = new Date();
@@ -496,14 +519,44 @@ let TransactionsService = class TransactionsService {
             if (isNaN(payAmount) || payAmount <= 0) {
                 throw new common_1.BadRequestException('El importe del abono a deuda corriente debe ser mayor a S/ 0.00');
             }
-            const method = data.paymentMethod || 'Efectivo';
-            const cardSurcharge = method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+            const mappedSaleMethod = this.mapToSalePaymentMethod(data.paymentMethod);
+            const legacyMethod = this.mapToLegacyPaymentMethod(data.paymentMethod);
+            const cardSurcharge = mappedSaleMethod === client_1.SalePaymentMethod.CARD ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
             const totalCharged = payAmount + cardSurcharge;
             let defaultNote = data.isFullPayoff
                 ? 'Liquidación automática de deuda corriente'
                 : 'Abono a deuda corriente';
-            if (method === 'Tarjeta') {
+            if (mappedSaleMethod === client_1.SalePaymentMethod.CARD) {
                 defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
+            }
+            let targetCashSession = null;
+            if (tx.cashSession) {
+                if (data.cashSessionId) {
+                    targetCashSession = await tx.cashSession.findFirst({
+                        where: { id: data.cashSessionId, status: 'OPEN' },
+                    });
+                    if (!targetCashSession) {
+                        throw new common_1.BadRequestException('El turno de caja especificado no existe o no se encuentra abierto.');
+                    }
+                }
+                else if (data.storeId) {
+                    targetCashSession = await tx.cashSession.findFirst({
+                        where: { storeId: data.storeId, status: 'OPEN', openedByUserId: user.id },
+                    });
+                    if (!targetCashSession) {
+                        targetCashSession = await tx.cashSession.findFirst({
+                            where: { storeId: data.storeId, status: 'OPEN' },
+                        });
+                    }
+                }
+                else if (user?.id) {
+                    targetCashSession = await tx.cashSession.findFirst({
+                        where: { openedByUserId: user.id, status: 'OPEN' },
+                    });
+                }
+            }
+            if (data.requireCashSession && !targetCashSession) {
+                throw new common_1.BadRequestException('Debes abrir caja antes de registrar este cobro.');
             }
             const allocations = [{ targetType: 'dailyDebt', amount: payAmount }];
             (0, balance_sync_service_1.validatePaymentAllocations)(payAmount, 'dailyDebt', allocations);
@@ -516,7 +569,7 @@ let TransactionsService = class TransactionsService {
                     amount: payAmount,
                     previousBalance: client.currentBalance,
                     resultingBalance: client.currentBalance,
-                    paymentMethod: method,
+                    paymentMethod: legacyMethod,
                     cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
                     totalCharged,
                     registeredBy: user.name,
@@ -536,6 +589,24 @@ let TransactionsService = class TransactionsService {
                     where: { id: newPayment.id },
                     data: { resultingBalance: synced.currentBalance },
                 });
+                if (targetCashSession && tx.cashMovement) {
+                    await tx.cashMovement.create({
+                        data: {
+                            businessId: targetCashSession.businessId,
+                            cashSessionId: targetCashSession.id,
+                            storeId: targetCashSession.storeId,
+                            cashRegisterId: targetCashSession.cashRegisterId,
+                            type: client_1.CashMovementType.DEBT_PAYMENT,
+                            paymentMethod: mappedSaleMethod,
+                            amount: new client_1.Prisma.Decimal(payAmount),
+                            referenceType: 'Payment',
+                            referenceId: newPayment.id,
+                            description: `Cobranza deuda corriente - ${client.name}`,
+                            notes: data.notes?.trim() || null,
+                            createdByUserId: user.id || targetCashSession.openedByUserId,
+                        },
+                    });
+                }
                 await this.auditService.logAudit(user.id, user.name, user.role, 'ABONO_DEUDA_DIARIA', `Abono a deuda corriente registrado y aprobado por S/ ${payAmount.toFixed(2)} para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`, newPayment.id);
                 const updatedClient = await tx.client.findUnique({
                     where: { id: clientId },
@@ -592,14 +663,44 @@ let TransactionsService = class TransactionsService {
             if (payAmount > loan.pendingAmount + 0.001) {
                 throw new common_1.BadRequestException(`No se permite sobrepago en créditos bancarios. El abono solicitado (S/ ${payAmount.toFixed(2)}) supera la deuda pendiente del crédito (S/ ${loan.pendingAmount.toFixed(2)})`);
             }
-            const method = data.paymentMethod || 'Efectivo';
-            const cardSurcharge = method === 'Tarjeta' ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
+            const mappedSaleMethod = this.mapToSalePaymentMethod(data.paymentMethod);
+            const legacyMethod = this.mapToLegacyPaymentMethod(data.paymentMethod);
+            const cardSurcharge = mappedSaleMethod === client_1.SalePaymentMethod.CARD ? Math.round(payAmount * 0.05 * 100) / 100 : 0;
             const totalCharged = payAmount + cardSurcharge;
             let defaultNote = data.isFullPayoff
                 ? `Liquidación de crédito ${loan.code}`
                 : `Abono a cuotas de crédito ${loan.code}`;
-            if (method === 'Tarjeta') {
+            if (mappedSaleMethod === client_1.SalePaymentMethod.CARD) {
                 defaultNote += ` (Incluye recargo del 5% por tarjeta: S/ ${cardSurcharge.toFixed(2)})`;
+            }
+            let targetCashSession = null;
+            if (tx.cashSession) {
+                if (data.cashSessionId) {
+                    targetCashSession = await tx.cashSession.findFirst({
+                        where: { id: data.cashSessionId, status: 'OPEN' },
+                    });
+                    if (!targetCashSession) {
+                        throw new common_1.BadRequestException('El turno de caja especificado no existe o no se encuentra abierto.');
+                    }
+                }
+                else if (data.storeId) {
+                    targetCashSession = await tx.cashSession.findFirst({
+                        where: { storeId: data.storeId, status: 'OPEN', openedByUserId: user.id },
+                    });
+                    if (!targetCashSession) {
+                        targetCashSession = await tx.cashSession.findFirst({
+                            where: { storeId: data.storeId, status: 'OPEN' },
+                        });
+                    }
+                }
+                else if (user?.id) {
+                    targetCashSession = await tx.cashSession.findFirst({
+                        where: { openedByUserId: user.id, status: 'OPEN' },
+                    });
+                }
+            }
+            if (data.requireCashSession && !targetCashSession) {
+                throw new common_1.BadRequestException('Debes abrir caja antes de registrar este cobro.');
             }
             const allocations = [];
             let rem = payAmount;
@@ -631,7 +732,7 @@ let TransactionsService = class TransactionsService {
                     amount: payAmount,
                     previousBalance: client.currentBalance,
                     resultingBalance: client.currentBalance,
-                    paymentMethod: method,
+                    paymentMethod: legacyMethod,
                     cardSurcharge: cardSurcharge > 0 ? cardSurcharge : null,
                     totalCharged,
                     registeredBy: user.name,
@@ -697,6 +798,24 @@ let TransactionsService = class TransactionsService {
                     where: { id: newPayment.id },
                     data: { resultingBalance: synced.currentBalance },
                 });
+                if (targetCashSession && tx.cashMovement) {
+                    await tx.cashMovement.create({
+                        data: {
+                            businessId: targetCashSession.businessId,
+                            cashSessionId: targetCashSession.id,
+                            storeId: targetCashSession.storeId,
+                            cashRegisterId: targetCashSession.cashRegisterId,
+                            type: client_1.CashMovementType.LOAN_PAYMENT,
+                            paymentMethod: mappedSaleMethod,
+                            amount: new client_1.Prisma.Decimal(payAmount),
+                            referenceType: 'Payment',
+                            referenceId: newPayment.id,
+                            description: `Cobranza de crédito ${loan.code} - ${client.name}`,
+                            notes: data.notes?.trim() || null,
+                            createdByUserId: user.id || targetCashSession.openedByUserId,
+                        },
+                    });
+                }
                 await this.auditService.logAudit(user.id, user.name, user.role, 'ABONO_CREDITO_BANCARIO', `Abono a crédito ${loan.code} registrado y aprobado por S/ ${payAmount.toFixed(2)} para ${client.name}. Saldo anterior: S/ ${client.currentBalance.toFixed(2)}, Nuevo saldo: S/ ${synced.currentBalance.toFixed(2)}`, newPayment.id);
                 const updatedClient = await tx.client.findUnique({
                     where: { id: client.id },

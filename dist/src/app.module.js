@@ -25,6 +25,9 @@ const suppliers_module_1 = require("./suppliers/suppliers.module");
 const products_module_1 = require("./products/products.module");
 const roles_module_1 = require("./roles/roles.module");
 const settings_module_1 = require("./settings/settings.module");
+const inventory_module_1 = require("./inventory/inventory.module");
+const sales_module_1 = require("./sales/sales.module");
+const cash_module_1 = require("./cash/cash.module");
 const frontendDistPath = (0, path_1.join)(process.cwd(), '..', 'frontend', 'dist');
 const rootDistPath = (0, path_1.join)(process.cwd(), 'dist');
 const parentDistPath = (0, path_1.join)(process.cwd(), '..', 'dist');
@@ -59,6 +62,9 @@ exports.AppModule = AppModule = __decorate([
             products_module_1.ProductsModule,
             roles_module_1.RolesModule,
             settings_module_1.SettingsModule,
+            inventory_module_1.InventoryModule,
+            sales_module_1.SalesModule,
+            cash_module_1.CashModule,
         ],
     })
 ], AppModule);

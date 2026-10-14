@@ -1,16 +1,31 @@
+import { OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-export declare class RolesService {
+export declare const SYSTEM_PERMISSIONS: {
+    code: string;
+    name: string;
+    module: string;
+    description: string;
+}[];
+export declare const SYSTEM_CASH_PERMISSIONS: {
+    code: string;
+    name: string;
+    module: string;
+    description: string;
+}[];
+export declare class RolesService implements OnModuleInit {
     private prisma;
     constructor(prisma: PrismaService);
+    onModuleInit(): Promise<void>;
+    ensureSystemPermissions(): Promise<void>;
     getRoles(): Promise<({
         permissions: ({
             permission: {
                 id: string;
                 name: string;
                 createdAt: Date;
-                description: string | null;
                 code: string;
                 module: string;
+                description: string | null;
             };
         } & {
             id: string;
@@ -35,9 +50,9 @@ export declare class RolesService {
                 id: string;
                 name: string;
                 createdAt: Date;
-                description: string | null;
                 code: string;
                 module: string;
+                description: string | null;
             };
         } & {
             id: string;
@@ -73,9 +88,9 @@ export declare class RolesService {
                 id: string;
                 name: string;
                 createdAt: Date;
-                description: string | null;
                 code: string;
                 module: string;
+                description: string | null;
             };
         } & {
             id: string;
@@ -95,8 +110,8 @@ export declare class RolesService {
         id: string;
         name: string;
         createdAt: Date;
-        description: string | null;
         code: string;
         module: string;
+        description: string | null;
     }[]>;
 }
