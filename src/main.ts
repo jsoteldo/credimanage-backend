@@ -12,7 +12,8 @@ async function bootstrap() {
       origin: [
         'http://localhost:3000',
         'http://localhost:5173',
-        'https://tu-dominio-frontend.vercel.app',
+        'https://credimanage-frontend-5u4rn8f0j-credimanage.vercel.app',
+        /\.vercel\.app$/
       ],
       methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
       credentials: true, // Obligatorio si manejarás cookies o envías el JWT en las cabeceras
