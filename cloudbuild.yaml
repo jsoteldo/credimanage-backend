@@ -1,0 +1,35 @@
+steps:
+  # 1. Construir imagen Docker
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/credimanage-backend:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/credimanage-backend:latest'
+      - '.'
+
+  # 2. Subir imagen al registro
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/credimanage-backend:latest'
+
+  # 3. Desplegar servicio en Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'credimanage-backend'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/credimanage-backend:latest'
+      - '--region'
+      - 'us-central1'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+images:
+  - 'gcr.io/$PROJECT_ID/credimanage-backend:latest'
+  - 'gcr.io/$PROJECT_ID/credimanage-backend:$COMMIT_SHA'
