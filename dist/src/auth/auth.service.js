@@ -58,9 +58,23 @@ let AuthService = class AuthService {
         this.auditService = auditService;
     }
     async login(email, pass) {
-        const user = await this.prisma.user.findUnique({
-            where: { email: email.trim().toLowerCase() },
-        });
+        let user;
+        try {
+            user = await this.prisma.user.findUnique({
+                where: { email: email.trim().toLowerCase() },
+            });
+        }
+        catch (dbError) {
+            console.error('🔥 [AuthService.login] Error en consulta a base de datos:', {
+                code: dbError.code,
+                message: dbError.message,
+                meta: dbError.meta,
+            });
+            if (dbError.code === 'P2021') {
+                throw new common_1.InternalServerErrorException('La tabla "User" no existe en la base de datos conectada. Verifica que DATABASE_URL en Google Cloud Run apunte a "/credimanage" y no a la base de datos vacía por defecto "/neondb".');
+            }
+            throw new common_1.InternalServerErrorException(`Error en base de datos (${dbError.code || 'UNKNOWN'}): ${dbError.message}`);
+        }
         if (!user) {
             throw new common_1.UnauthorizedException('Credenciales inválidas');
         }

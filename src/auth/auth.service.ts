@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,9 +18,27 @@ export class AuthService {
   ) {}
 
   async login(email: string, pass: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
-    });
+    let user;
+    try {
+      user = await this.prisma.user.findUnique({
+        where: { email: email.trim().toLowerCase() },
+      });
+    } catch (dbError: any) {
+      console.error('🔥 [AuthService.login] Error en consulta a base de datos:', {
+        code: dbError.code,
+        message: dbError.message,
+        meta: dbError.meta,
+      });
+
+      if (dbError.code === 'P2021') {
+        throw new InternalServerErrorException(
+          'La tabla "User" no existe en la base de datos conectada. Verifica que DATABASE_URL en Google Cloud Run apunte a "/credimanage" y no a la base de datos vacía por defecto "/neondb".',
+        );
+      }
+      throw new InternalServerErrorException(
+        `Error en base de datos (${dbError.code || 'UNKNOWN'}): ${dbError.message}`,
+      );
+    }
 
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');

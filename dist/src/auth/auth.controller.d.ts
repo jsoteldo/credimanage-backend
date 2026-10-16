@@ -5,13 +5,13 @@ export declare class AuthController {
     login(body: any): Promise<{
         token: string;
         user: {
-            id: string;
-            name: string;
-            email: string;
-            role: import("@prisma/client").$Enums.UserRole;
-            avatar: string | null;
-            active: true;
-            approved: true;
+            id: any;
+            name: any;
+            email: any;
+            role: any;
+            avatar: any;
+            active: any;
+            approved: any;
             permissions: string[];
         };
     }>;

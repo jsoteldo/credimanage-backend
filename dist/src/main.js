@@ -18,6 +18,15 @@ async function bootstrap() {
                     allowedOrigins.push(trimmed);
             });
         }
+        app.use((req, res, next) => {
+            const urlPath = (req.url || '').split('?')[0];
+            if (!urlPath.startsWith('/crediApi') &&
+                urlPath !== '/' &&
+                urlPath !== '/health') {
+                req.url = '/crediApi' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+            }
+            next();
+        });
         app.enableCors({
             origin: allowedOrigins,
             methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

@@ -20,6 +20,20 @@ async function bootstrap() {
       });
     }
 
+    // Compatibilidad: Si la petición no incluye el prefijo /crediApi (excepto / y /health),
+    // reescribir internamente la URL para que no arroje 404
+    app.use((req: any, res: any, next: any) => {
+      const urlPath = (req.url || '').split('?')[0];
+      if (
+        !urlPath.startsWith('/crediApi') &&
+        urlPath !== '/' &&
+        urlPath !== '/health'
+      ) {
+        req.url = '/crediApi' + (req.url.startsWith('/') ? req.url : '/' + req.url);
+      }
+      next();
+    });
+
     // Aprovechamos y habilitamos CORS para cuando conectes el frontend
     app.enableCors({
       origin: allowedOrigins,

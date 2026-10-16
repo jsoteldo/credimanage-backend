@@ -18,14 +18,27 @@ const config_1 = require("@nestjs/config");
 let PrismaService = class PrismaService extends client_1.PrismaClient {
     pool;
     constructor(configService) {
-        const connectionString = configService.get('DATABASE_URL');
+        let rawConnectionString = configService.get('DATABASE_URL') || process.env.DATABASE_URL || '';
+        const connectionString = rawConnectionString.trim().replace(/^["']|["']$/g, '');
+        const sanitizedUrl = connectionString.replace(/:[^:@]+@/, ':****@');
+        console.log(`📡 [PrismaService] Conectando a base de datos: ${sanitizedUrl || 'VACÍA/NO DEFINIDA'}`);
+        if (connectionString.includes('/neondb')) {
+            console.warn('⚠️ [PrismaService] ADVERTENCIA CRÍTICA: DATABASE_URL apunta a la base de datos por defecto "/neondb" en vez de "/credimanage". Las tablas y datos del proyecto residen en "/credimanage".');
+        }
         const pool = new pg_1.Pool({ connectionString });
         const adapter = new adapter_pg_1.PrismaPg(pool);
         super({ adapter });
         this.pool = pool;
     }
     async onModuleInit() {
-        await this.$connect();
+        try {
+            await this.$connect();
+            console.log('✅ [PrismaService] Conexión establecida con la base de datos exitosamente.');
+        }
+        catch (err) {
+            console.error('🔥 [PrismaService] Error al conectar con la base de datos:', err.message);
+            throw err;
+        }
     }
     async onModuleDestroy() {
         await this.$disconnect();
